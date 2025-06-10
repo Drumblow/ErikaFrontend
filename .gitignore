@@ -4,13 +4,13 @@
 expo-env.d.ts
 # @end expo-cli
 
-node_modules/
-
-# Documentação e arquivos gerados
-API_DOCUMENTATION.md
-BACKEND_PDF_REQUEST.md
-CRONOGRAMA MES JANEIRO (2).md
-CRONOGRAMA MES JANEIRO (2).pdf
-CRONOGRAMA MES JUNHO.pdf
+# Ignorar arquivos de documentação e pastas
 PLANEJAMENTO_PROJETO.md
+CRONOGRAMA MES JUNHO.pdf
+CRONOGRAMA MES JANEIRO (2).pdf
+CRONOGRAMA MES JANEIRO (2).md
+BACKEND_PDF_REQUEST.md
+API_DOCUMENTATION.md
+node_modules/
 CRONOGRAMA MES JUNHO/
+.expo/

@@ -5,6 +5,7 @@ import {
   ScrollView,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import {
   Card,
@@ -72,22 +73,31 @@ export default function PreviewCronogramaScreen() {
       const response = await api.generatePDF(cronograma.id);
 
       if (response.success && response.data.pdfBase64) {
-        // 2. Salvar o PDF a partir do base64
         const pdfName = `cronograma-${cronograma.mes}-${cronograma.ano}.pdf`;
-        const pdfUri = FileSystem.documentDirectory + pdfName;
-
-        await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        // 3. Compartilhar o arquivo salvo
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(pdfUri, {
-            mimeType: 'application/pdf',
-            dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
-          });
+        if (Platform.OS === 'web') {
+          // Web: baixar o PDF via link
+          const link = document.createElement('a');
+          link.href = `data:application/pdf;base64,${response.data.pdfBase64}`;
+          link.download = pdfName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          Alert.alert('PDF Gerado', 'O PDF foi baixado para seu computador.');
         } else {
-          Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${pdfUri}`);
+          // Mobile: salvar e compartilhar
+          const pdfUri = FileSystem.documentDirectory + pdfName;
+          await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(pdfUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
+            });
+          } else {
+            Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${pdfUri}`);
+          }
         }
       } else {
         throw new Error(response.message || 'A API não retornou um PDF válido.');
