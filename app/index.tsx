@@ -4,6 +4,7 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import {
   Card,
@@ -20,13 +21,14 @@ import {
 } from 'react-native-paper';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { api } from '../src/services/api';
 import { Cronograma } from '../src/types';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
 import { formatPeriod, debounce, filterBySearch } from '../src/utils';
 import { useSnackbar } from '../src/contexts/SnackbarContext';
+import { useAuth } from '../src/contexts/AuthContext';
 
 export default function HomeScreen() {
   const [cronogramas, setCronogramas] = useState<Cronograma[]>([]);
@@ -35,11 +37,22 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { showSnackbar } = useSnackbar();
-
   const [dialogVisible, setDialogVisible] = useState(false);
   const [cronogramaToDelete, setCronogramaToDelete] = useState<Cronograma | null>(null);
+  
+  // Hooks devem sempre ser chamados na mesma ordem
+  const { showSnackbar } = useSnackbar();
+  const { user, token, isLoading: authLoading, signOut } = useAuth();
 
+  // Efeito para redirecionamento de autenticação
+  useEffect(() => {
+    if (!authLoading && !token) {
+      console.log('Usuário não autenticado, redirecionando para login');
+      router.replace('/login');
+    }
+  }, [authLoading, token]);
+
+  // Callbacks e outras funções
   const loadCronogramas = useCallback(async (showRefresh = false) => {
     try {
       console.log('🔄 Iniciando carregamento de cronogramas...');
@@ -83,13 +96,31 @@ export default function HomeScreen() {
     [cronogramas]
   );
 
+  // Efeitos para carregamento e busca
   useEffect(() => {
-    loadCronogramas();
-  }, [loadCronogramas]);
+    if (token && user) {
+      loadCronogramas();
+    }
+  }, [loadCronogramas, token, user]);
 
   useEffect(() => {
     debouncedSearch(searchQuery);
   }, [searchQuery, debouncedSearch]);
+
+  // Estado de carregamento da autenticação
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
+
+  // Se não autenticado, retorna null (redirecionamento acontece no useEffect)
+  if (!token || !user) {
+    return null;
+  }
 
   const handleDeleteCronograma = (cronograma: Cronograma) => {
     console.log('Abrindo diálogo de exclusão para:', cronograma.id);
@@ -246,6 +277,15 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.userInfo}>
+        <Text style={styles.welcomeText}>
+          Olá, {user?.nome}! 👋
+        </Text>
+        <Text style={styles.userDetails}>
+          {user?.cargo} | {cronogramas.length} cronograma{cronogramas.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
+      
       <View style={styles.searchContainer}>
         <Searchbar
           placeholder="Buscar por UBSF, enfermeiro ou médico..."
@@ -441,5 +481,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  userInfo: {
+    padding: Spacing.md,
+    backgroundColor: Colors.primaryLight,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary + '20',
+  },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  userDetails: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textTransform: 'capitalize',
   },
 });

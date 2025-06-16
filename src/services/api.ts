@@ -8,31 +8,93 @@ import {
   CreateAtividadeData,
   UpdateAtividadeData
 } from '../types';
+import { router } from 'expo-router';
 
+// Configuração da URL da API 
+// Backend agora tem CORS configurado para localhost
 const API_BASE_URL = 'https://erika-ubsf.vercel.app';
 
+// Verificação para debug
+console.log('🔗 API_BASE_URL configurada:', API_BASE_URL);
+console.log('🔧 __DEV__:', __DEV__);
+
+// Função para lidar com logout quando token expira
+let logoutCallback: (() => void) | null = null;
+
+export const setLogoutCallback = (callback: () => void) => {
+  logoutCallback = callback;
+};
+
+// Tipos para autenticação
+interface LoginData {
+  email: string;
+  senha: string;
+}
+
+interface CadastroData {
+  email: string;
+  nome: string;
+  senha: string;
+  cargo: string;
+}
+
+interface AuthResponse {
+  usuario: {
+    id: string;
+    email: string;
+    nome: string;
+    cargo: string;
+    criadoEm: string;
+    atualizadoEm: string;
+  };
+  token: string;
+}
+
 class ApiService {
+  private authToken: string | null = null;
+
+  setAuthToken(token: string | null): void {
+    this.authToken = token;
+  }
+
   private async request<T>(
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...options.headers as Record<string, string>,
+    };
+
+    // Add authorization header if token exists
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+    
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
     try {
-      console.log('API Request:', config.method || 'GET', url);
-      console.log('API Config:', config);
+      console.log('🚀 API Request:', config.method || 'GET', url);
+      console.log('📋 API Config:', config);
+      console.log('🔗 API_BASE_URL:', API_BASE_URL);
       
       const response = await fetch(url, config);
       
       console.log('API Response Status:', response.status);
+
+      // Tratamento específico para erro 401 (Não autorizado)
+      if (response.status === 401) {
+        console.error('🚨 Token inválido ou expirado (401)');
+        if (logoutCallback) {
+          logoutCallback();
+        }
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
 
       if (response.status === 204 || response.headers.get('Content-Length') === '0') {
         console.log('API Response: Empty body (204 No Content)');
@@ -51,9 +113,35 @@ class ApiService {
       
       return data;
     } catch (error) {
-      console.error('API Request Error:', error);
+      console.error('❌ API Request Error:', error);
+      console.error('❌ Failed URL:', url);
+      console.error('❌ Request config:', config);
+      
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        console.error('❌ Network error - possível problema de CORS ou URL inválida');
+        throw new Error('Erro de conexão com o servidor. Verifique sua internet e tente novamente.');
+      }
+      
       throw error;
     }
+  }
+
+  // --- MÉTODOS DE AUTENTICAÇÃO ---
+
+  // Cadastro de usuário
+  async cadastro(data: CadastroData): Promise<ApiResponse<AuthResponse>> {
+    return this.request('/api/auth/cadastro', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Login
+  async login(data: LoginData): Promise<ApiResponse<AuthResponse>> {
+    return this.request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // Health Check
