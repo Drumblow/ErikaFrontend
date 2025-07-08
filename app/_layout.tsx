@@ -17,18 +17,22 @@ function AuthGuard() {
   const segments = useSegments();
 
   useEffect(() => {
-    // Se ainda está carregando o estado de autenticação, não faz nada.
+    // Se ainda está autenticando, não fazemos nada até que se resolva.
     if (isLoading) {
       return;
     }
 
-    const inAppGroup = segments[0] === '(tabs)';
+    const rootSegment = segments[0];
+    const isAuthRoute = rootSegment === 'login' || rootSegment === 'register';
 
-    if (user && !inAppGroup) {
-      // Usuário está logado mas não está no grupo de rotas do app, redireciona para a home.
+    // Se o usuário está logado e tenta acessar as rotas de login/cadastro,
+    // o redirecionamos para a tela principal.
+    if (user && isAuthRoute) {
       router.replace('/(tabs)');
-    } else if (!user && inAppGroup) {
-      // Usuário não está logado e tentou acessar uma rota protegida, redireciona para o login.
+    } 
+    // Se o usuário NÃO está logado e tenta acessar qualquer rota que NÃO seja
+    // de login/cadastro, o redirecionamos para a tela de login.
+    else if (!user && !isAuthRoute) {
       router.replace('/login');
     }
   }, [user, isLoading, segments]);
