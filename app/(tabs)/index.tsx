@@ -103,7 +103,7 @@ export default function TabIndexScreen() {
                 icon="file-pdf-box"
                 onPress={() => router.push(`/preview/${item.id}`)}
               >
-                Gerar PDF
+                Visualizar Cronograma
               </Button>
             </Card.Actions>
           </Card>
