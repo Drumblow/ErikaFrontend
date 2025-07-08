@@ -64,6 +64,75 @@ export default function PreviewCronogramaScreen() {
     }
   };
 
+  // Função alternativa para iOS usando expo-print
+  const handleGeneratePDFiOS = async () => {
+    if (!cronograma) return;
+    
+    setGeneratingPDF(true);
+    try {
+      // Gerar HTML para o PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .info { margin-bottom: 20px; }
+            .activities { margin-top: 20px; }
+            .activity { margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; }
+            .day { font-weight: bold; color: #333; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Cronograma UBSF</h1>
+            <h2>${formatPeriod(cronograma.mes, cronograma.ano)}</h2>
+          </div>
+          
+          <div class="info">
+            <p><strong>UBSF:</strong> ${cronograma.nomeUBSF || 'Não informado'}</p>
+            <p><strong>Enfermeiro(a):</strong> ${cronograma.enfermeiro || 'Não informado'}</p>
+            <p><strong>Médico(a):</strong> ${cronograma.medico || 'Não informado'}</p>
+          </div>
+          
+          <div class="activities">
+            <h3>Atividades (${cronograma.atividades?.length || 0})</h3>
+                         ${cronograma.atividades?.map(atividade => `
+               <div class="activity">
+                 <div class="day">${formatDate(atividade.data)} - ${formatDiaSemana(atividade.data)}</div>
+                 <p>${atividade.descricao}</p>
+                 <p><small>Turno: ${atividade.diaSemana}</small></p>
+               </div>
+             `).join('') || '<p>Nenhuma atividade cadastrada</p>'}
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Usar expo-print para gerar o PDF
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
+          UTI: 'com.adobe.pdf',
+        });
+        Alert.alert('PDF Gerado', 'O PDF foi gerado com sucesso usando o método alternativo!');
+      } else {
+        Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${uri}`);
+      }
+    } catch (error) {
+      console.error('Erro ao gerar PDF com expo-print:', error);
+      Alert.alert('Erro', 'Não foi possível gerar o PDF usando o método alternativo.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!cronograma) return;
     
@@ -71,9 +140,24 @@ export default function PreviewCronogramaScreen() {
     try {
       // 1. Chamar a API do backend
       const response = await api.generatePDF(cronograma.id);
+      
+      // Debug: verificar resposta da API
+      console.log('API Response:', {
+        success: response.success,
+        hasData: !!response.data,
+        hasPdfBase64: !!(response.data && response.data.pdfBase64),
+        hasPdfUrl: !!(response.data && response.data.pdfUrl),
+        platform: Platform.OS,
+      });
 
-      if (response.success && response.data.pdfBase64) {
+      if (response.success && response.data && (response.data.pdfBase64 || response.data.pdfUrl)) {
         const pdfName = `cronograma-${cronograma.mes}-${cronograma.ano}.pdf`;
+        
+        // Verificar se temos dados em base64
+        if (!response.data.pdfBase64) {
+          throw new Error('API não retornou dados do PDF em base64');
+        }
+        
         if (Platform.OS === 'web') {
           // Web: baixar o PDF via link
           const link = document.createElement('a');
@@ -83,8 +167,44 @@ export default function PreviewCronogramaScreen() {
           link.click();
           document.body.removeChild(link);
           Alert.alert('PDF Gerado', 'O PDF foi baixado para seu computador.');
+        } else if (Platform.OS === 'ios') {
+          // iOS: implementação específica com melhor tratamento
+          try {
+            const pdfUri = FileSystem.documentDirectory + pdfName;
+            await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            // Verificar se o arquivo foi criado corretamente
+            const fileInfo = await FileSystem.getInfoAsync(pdfUri);
+            if (!fileInfo.exists) {
+              throw new Error('Arquivo PDF não foi criado corretamente.');
+            }
+
+            // Usar o sistema de compartilhamento do iOS
+            if (await Sharing.isAvailableAsync()) {
+              await Sharing.shareAsync(pdfUri, {
+                mimeType: 'application/pdf',
+                dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
+                UTI: 'com.adobe.pdf',
+              });
+              Alert.alert('PDF Gerado', 'O PDF foi gerado com sucesso!');
+            } else {
+              Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${pdfUri}`);
+            }
+          } catch (iosError) {
+            console.error('Erro específico do iOS:', iosError);
+            Alert.alert(
+              'Erro no iOS', 
+              'Não foi possível gerar o PDF usando o método principal. Deseja tentar o método alternativo?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Tentar Alternativo', onPress: handleGeneratePDFiOS }
+              ]
+            );
+          }
         } else {
-          // Mobile: salvar e compartilhar
+          // Android: manter implementação original
           const pdfUri = FileSystem.documentDirectory + pdfName;
           await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
             encoding: FileSystem.EncodingType.Base64,
@@ -104,7 +224,23 @@ export default function PreviewCronogramaScreen() {
       }
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      const message = error instanceof Error ? error.message : 'Tente novamente.';
+      console.error('Platform:', Platform.OS);
+      
+      let message = 'Tente novamente.';
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      
+      // Adicionar informações específicas do iOS para debug
+      if (Platform.OS === 'ios') {
+        message += ' (iOS)';
+        console.error('iOS Error Details:', {
+          error: error,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+      
       Alert.alert('Erro ao Gerar PDF', `Não foi possível gerar o relatório. ${message}`);
     } finally {
       setGeneratingPDF(false);
@@ -309,6 +445,19 @@ Gerado pelo App Cronograma UBSF
           >
             {generatingPDF ? 'Gerando PDF...' : 'Gerar PDF'}
           </Button>
+          
+          {Platform.OS === 'ios' && (
+            <Button
+              mode="outlined"
+              onPress={handleGeneratePDFiOS}
+              style={styles.actionButton}
+              icon="file-pdf-box"
+              loading={generatingPDF}
+              disabled={generatingPDF}
+            >
+              {generatingPDF ? 'Gerando PDF...' : 'PDF Alternativo (iOS)'}
+            </Button>
+          )}
         </View>
       </ScrollView>
       

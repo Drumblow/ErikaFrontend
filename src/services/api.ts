@@ -8,52 +8,20 @@ import {
   CreateAtividadeData,
   UpdateAtividadeData
 } from '../types';
-import { router } from 'expo-router';
 
-// Configuração da URL da API 
-// Backend agora tem CORS configurado para localhost
 const API_BASE_URL = 'https://erika-ubsf.vercel.app';
 
-// Verificação para debug
-console.log('🔗 API_BASE_URL configurada:', API_BASE_URL);
-console.log('🔧 __DEV__:', __DEV__);
-
-// Função para lidar com logout quando token expira
+// Callback para logout automático
 let logoutCallback: (() => void) | null = null;
 
 export const setLogoutCallback = (callback: () => void) => {
   logoutCallback = callback;
 };
 
-// Tipos para autenticação
-interface LoginData {
-  email: string;
-  senha: string;
-}
-
-interface CadastroData {
-  email: string;
-  nome: string;
-  senha: string;
-  cargo: string;
-}
-
-interface AuthResponse {
-  usuario: {
-    id: string;
-    email: string;
-    nome: string;
-    cargo: string;
-    criadoEm: string;
-    atualizadoEm: string;
-  };
-  token: string;
-}
-
 class ApiService {
   private authToken: string | null = null;
 
-  setAuthToken(token: string | null): void {
+  setAuthToken(token: string | null) {
     this.authToken = token;
   }
 
@@ -63,90 +31,52 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...options.headers as Record<string, string>,
-    };
-
-    // Add authorization header if token exists
-    if (this.authToken) {
-      headers['Authorization'] = `Bearer ${this.authToken}`;
-    }
-    
     const config: RequestInit = {
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.authToken && { 'Authorization': `Bearer ${this.authToken}` }),
+        ...options.headers,
+      },
       ...options,
     };
 
     try {
-      console.log('🚀 API Request:', config.method || 'GET', url);
-      console.log('📋 API Config:', config);
-      console.log('🔗 API_BASE_URL:', API_BASE_URL);
-      
       const response = await fetch(url, config);
+      const data = await response.json();
       
-      console.log('API Response Status:', response.status);
-
-      // Tratamento específico para erro 401 (Não autorizado)
-      if (response.status === 401) {
-        console.error('🚨 Token inválido ou expirado (401)');
-        if (logoutCallback) {
+      if (!response.ok) {
+        // Se for erro 401 (não autorizado), chamar callback de logout
+        if (response.status === 401 && logoutCallback) {
           logoutCallback();
         }
-        throw new Error('Sessão expirada. Faça login novamente.');
-      }
-
-      if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-        console.log('API Response: Empty body (204 No Content)');
-        // Para DELETE, uma resposta 204 é um sucesso, mas não tem corpo.
-        // Retornamos um objeto de sucesso padrão que a aplicação espera.
-        return { success: true, message: 'Operação realizada com sucesso' } as ApiResponse<T>;
-      }
-
-      const data = await response.json();
-      console.log('API Response Data:', data);
-      
-      // A API pode retornar success: false no corpo, mesmo com status 200.
-      if (!response.ok && !data.success) {
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
       
       return data;
     } catch (error) {
-      console.error('❌ API Request Error:', error);
-      console.error('❌ Failed URL:', url);
-      console.error('❌ Request config:', config);
-      
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        console.error('❌ Network error - possível problema de CORS ou URL inválida');
-        throw new Error('Erro de conexão com o servidor. Verifique sua internet e tente novamente.');
-      }
-      
+      console.error('API Request Error:', error);
       throw error;
     }
-  }
-
-  // --- MÉTODOS DE AUTENTICAÇÃO ---
-
-  // Cadastro de usuário
-  async cadastro(data: CadastroData): Promise<ApiResponse<AuthResponse>> {
-    return this.request('/api/auth/cadastro', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // Login
-  async login(data: LoginData): Promise<ApiResponse<AuthResponse>> {
-    return this.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
   }
 
   // Health Check
   async healthCheck(): Promise<ApiResponse<any>> {
     return this.request('/api/health');
+  }
+
+  // Authentication
+  async login(credentials: { email: string; senha: string }): Promise<ApiResponse<{ token: string; usuario: any }>> {
+    return this.request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async cadastro(userData: { nome: string; email: string; senha: string; cargo: string }): Promise<ApiResponse<{ token: string; usuario: any }>> {
+    return this.request('/api/auth/cadastro', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
   }
 
   // Cronogramas
@@ -188,8 +118,7 @@ class ApiService {
   }
 
   async deleteCronograma(id: string): Promise<ApiResponse<null>> {
-    // O tipo de retorno genérico é ajustado para corresponder ao que `request` pode retornar
-    return this.request<null>(`/api/cronogramas/${id}`, {
+    return this.request(`/api/cronogramas/${id}`, {
       method: 'DELETE',
     });
   }
@@ -245,13 +174,13 @@ class ApiService {
   }
 
   async deleteAtividade(id: string): Promise<ApiResponse<null>> {
-    return this.request<null>(`/api/atividades/${id}`, {
+    return this.request(`/api/atividades/${id}`, {
       method: 'DELETE',
     });
   }
 
   // PDF Generation
-  async generatePDF(cronogramaId: string): Promise<ApiResponse<{ pdfBase64: string }>> {
+  async generatePDF(cronogramaId: string): Promise<ApiResponse<{ pdfUrl?: string; pdfBase64?: string }>> {
     return this.request(`/api/cronogramas/${cronogramaId}/pdf`, {
       method: 'POST',
     });

@@ -1,39 +1,22 @@
 import { MESES } from '../types';
 
-// Movido de types.ts para ser usado localmente e exportado
+/**
+ * Tipo para representar os dias da semana com períodos
+ */
 export type DiaSemana = 
-  | 'SEGUNDA-MANHÃ'
-  | 'SEGUNDA-TARDE'
-  | 'TERÇA-MANHÃ'
-  | 'TERÇA-TARDE'
-  | 'QUARTA-MANHÃ'
-  | 'QUARTA-TARDE'
-  | 'QUINTA-MANHÃ'
-  | 'QUINTA-TARDE'
-  | 'SEXTA-MANHÃ'
-  | 'SEXTA-TARDE'
-  | 'SABADO-MANHÃ'
-  | 'SABADO-TARDE'
-  | 'DOMINGO-MANHÃ' // Adicionado para cobrir todos os dias
-  | 'DOMINGO-TARDE';
+  | 'SEGUNDA-MANHÃ' | 'SEGUNDA-TARDE'
+  | 'TERÇA-MANHÃ' | 'TERÇA-TARDE'
+  | 'QUARTA-MANHÃ' | 'QUARTA-TARDE'
+  | 'QUINTA-MANHÃ' | 'QUINTA-TARDE'
+  | 'SEXTA-MANHÃ' | 'SEXTA-TARDE'
+  | 'SABADO-MANHÃ' | 'SABADO-TARDE';
 
 /**
- * Formata uma data para o formato brasileiro (DD/MM/AAAA) ou AAAA-MM-DD
+ * Formata uma data para o formato brasileiro (DD/MM/AAAA)
  */
-export const formatDate = (date: string | Date, format: 'DD/MM/AAAA' | 'YYYY-MM-DD' = 'DD/MM/AAAA'): string => {
+export const formatDate = (date: string | Date): string => {
   const d = new Date(date);
-  
-  if (!isValidDate(d)) return 'Data inválida';
-
-  if (format === 'YYYY-MM-DD') {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-  
-  // Default to DD/MM/AAAA
-  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  return d.toLocaleDateString('pt-BR');
 };
 
 /**
@@ -56,19 +39,6 @@ export const getMonthName = (month: number): string => {
  */
 export const formatPeriod = (month: number, year: number): string => {
   return `${getMonthName(month)} ${year}`;
-};
-
-/**
- * Converte um objeto Date e um período ('MANHÃ' ou 'TARDE') para o enum DiaSemana.
- * Ex: new Date('2025-06-02'), 'MANHÃ' => 'SEGUNDA-MANHÃ'
- */
-export const getDiaSemanaEnum = (date: Date, periodo: 'MANHÃ' | 'TARDE'): DiaSemana => {
-  const dias: (string | DiaSemana)[] = [
-    'DOMINGO-MANHÃ', 'SEGUNDA-MANHÃ', 'TERÇA-MANHÃ', 'QUARTA-MANHÃ', 
-    'QUINTA-MANHÃ', 'SEXTA-MANHÃ', 'SABADO-MANHÃ'
-  ];
-  const diaBase = dias[date.getUTCDay()]; // Usar getUTCDay para consistência
-  return diaBase.replace('MANHÃ', periodo) as DiaSemana;
 };
 
 /**
@@ -103,7 +73,7 @@ export const getDayName = (date: Date): string => {
     'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
     'Quinta-feira', 'Sexta-feira', 'Sábado'
   ];
-  return days[date.getUTCDay()]; // Usar getUTCDay para consistência
+  return days[date.getDay()];
 };
 
 /**
@@ -129,10 +99,10 @@ export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   return (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait) as unknown as NodeJS.Timeout;
+    timeout = setTimeout(() => func(...args), wait);
   };
 };
 
@@ -194,4 +164,27 @@ export const filterBySearch = <T>(
       return false;
     })
   );
+};
+
+/**
+ * Gera o enum DiaSemana baseado numa data e período
+ */
+export const getDiaSemanaEnum = (date: Date, periodo: 'MANHÃ' | 'TARDE'): DiaSemana => {
+  const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+  
+  const dayNames: Record<number, string> = {
+    1: 'SEGUNDA',
+    2: 'TERÇA',
+    3: 'QUARTA',
+    4: 'QUINTA',
+    5: 'SEXTA',
+    6: 'SABADO'
+  };
+  
+  const dayName = dayNames[dayOfWeek];
+  if (!dayName) {
+    throw new Error('Dia da semana inválido. Apenas segunda a sábado são permitidos.');
+  }
+  
+  return `${dayName}-${periodo}` as DiaSemana;
 };

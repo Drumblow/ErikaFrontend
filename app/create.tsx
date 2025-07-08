@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
+  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -21,7 +22,6 @@ import RNPickerSelect from 'react-native-picker-select';
 import { api } from '../src/services/api';
 import { CreateCronogramaData, MESES } from '../src/types';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
-import { useSnackbar } from '../src/contexts/SnackbarContext';
 
 interface FormData {
   mes: number | undefined;
@@ -52,7 +52,6 @@ export default function CreateCronogramaScreen() {
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
-  const { showSnackbar } = useSnackbar();
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -111,15 +110,31 @@ export default function CreateCronogramaScreen() {
       const response = await api.createCronograma(createData);
       
       if (response.success) {
-        showSnackbar('Cronograma criado com sucesso!', 'success');
-        router.push(`/atividades/${response.data.id}`);
+        // Limpar os campos
+        resetForm();
+        
+        Alert.alert(
+          'Sucesso!',
+          'Cronograma criado com sucesso! Agora você pode adicionar atividades.',
+          [
+            {
+              text: 'Adicionar Atividades',
+              onPress: () => {
+                // Redirecionar para a página de adicionar atividades
+                router.push(`/atividades/${response.data.id}`);
+              },
+            },
+          ]
+        );
       } else {
-        showSnackbar(response.message || 'Erro ao criar cronograma', 'error');
+        Alert.alert('Erro', response.message || 'Erro ao criar cronograma');
       }
     } catch (error) {
       console.error('Erro ao criar cronograma:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Verifique sua conexão e tente novamente.';
-      showSnackbar(`Erro ao criar o cronograma: ${errorMessage}`, 'error');
+      Alert.alert(
+        'Erro',
+        'Não foi possível criar o cronograma. Verifique sua conexão e tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -159,7 +174,7 @@ export default function CreateCronogramaScreen() {
                   <Title style={styles.fieldTitle}>Mês *</Title>
                   <View style={styles.pickerContainer}>
                     <RNPickerSelect
-                      onValueChange={(value) => updateFormData('mes', value)}
+                      onValueChange={(value: number) => updateFormData('mes', value)}
                       items={MESES.map(mes => ({
                         label: mes.label,
                         value: mes.value,
@@ -183,7 +198,7 @@ export default function CreateCronogramaScreen() {
                   <Title style={styles.fieldTitle}>Ano *</Title>
                   <View style={styles.pickerContainer}>
                     <RNPickerSelect
-                      onValueChange={(value) => updateFormData('ano', value)}
+                      onValueChange={(value: number) => updateFormData('ano', value)}
                       items={yearOptions}
                       value={formData.ano}
                       style={pickerSelectStyles}
@@ -251,7 +266,7 @@ export default function CreateCronogramaScreen() {
         <View style={styles.buttonContainer}>
           <Button
             mode="outlined"
-            onPress={() => router.push('/')}
+            onPress={() => router.back()}
             style={styles.cancelButton}
             disabled={loading}
           >

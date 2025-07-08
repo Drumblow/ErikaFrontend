@@ -5,7 +5,6 @@ import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../src/contexts/AuthContext';
-import { useSnackbar } from '../src/contexts/SnackbarContext';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
 
 export default function LoginScreen() {
@@ -13,22 +12,19 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
-  const { showSnackbar } = useSnackbar();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      showSnackbar('Por favor, preencha todos os campos.', 'error');
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
     setLoading(true);
     try {
       await signIn(email, password);
-      showSnackbar('✅ Login realizado com sucesso!', 'success');
       router.replace('/');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer login';
-      showSnackbar(`❌ ${errorMessage}`, 'error');
+      Alert.alert('Erro de Login', 'As credenciais estão incorretas ou o usuário não existe.');
       console.error(error);
     } finally {
       setLoading(false);

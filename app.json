@@ -15,13 +15,19 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSDocumentInteractionControllerUsageDescription": "Este aplicativo precisa acessar documentos para visualizar cronogramas em PDF.",
+        "NSPhotoLibraryUsageDescription": "Este aplicativo precisa acessar a biblioteca de fotos para salvar PDFs.",
+        "NSDocumentDirectoryUsageDescription": "Este aplicativo precisa acessar o diretório de documentos para salvar cronogramas em PDF."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.cronogramaubsf"
     },
     "web": {
       "bundler": "metro"

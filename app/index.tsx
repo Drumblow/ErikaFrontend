@@ -16,43 +16,25 @@ import {
   Text,
   ActivityIndicator,
   Button,
-  Portal,
-  Dialog,
 } from 'react-native-paper';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 
 import { api } from '../src/services/api';
 import { Cronograma } from '../src/types';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
 import { formatPeriod, debounce, filterBySearch } from '../src/utils';
-import { useSnackbar } from '../src/contexts/SnackbarContext';
-import { useAuth } from '../src/contexts/AuthContext';
+import { AuthGuard } from '../src/components/AuthGuard';
 
-export default function HomeScreen() {
+function HomeScreen() {
   const [cronogramas, setCronogramas] = useState<Cronograma[]>([]);
   const [filteredCronogramas, setFilteredCronogramas] = useState<Cronograma[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [dialogVisible, setDialogVisible] = useState(false);
-  const [cronogramaToDelete, setCronogramaToDelete] = useState<Cronograma | null>(null);
-  
-  // Hooks devem sempre ser chamados na mesma ordem
-  const { showSnackbar } = useSnackbar();
-  const { user, token, isLoading: authLoading, signOut } = useAuth();
 
-  // Efeito para redirecionamento de autenticação
-  useEffect(() => {
-    if (!authLoading && !token) {
-      console.log('Usuário não autenticado, redirecionando para login');
-      router.replace('/login');
-    }
-  }, [authLoading, token]);
-
-  // Callbacks e outras funções
   const loadCronogramas = useCallback(async (showRefresh = false) => {
     try {
       console.log('🔄 Iniciando carregamento de cronogramas...');
@@ -64,9 +46,9 @@ export default function HomeScreen() {
       console.log('📡 Resposta da API:', response);
       
       if (response.success) {
-        console.log('✅ Cronogramas carregados:', response.data.cronogramas?.length || 0);
-        setCronogramas(response.data.cronogramas || []);
-        setFilteredCronogramas(response.data.cronogramas || []);
+        console.log('✅ Cronogramas carregados:', response.data.items?.length || 0);
+        setCronogramas(response.data.items || []);
+        setFilteredCronogramas(response.data.items || []);
       } else {
         console.log('❌ Erro na resposta:', response.message);
         setError(response.message);
@@ -96,62 +78,44 @@ export default function HomeScreen() {
     [cronogramas]
   );
 
-  // Efeitos para carregamento e busca
   useEffect(() => {
-    if (token && user) {
-      loadCronogramas();
-    }
-  }, [loadCronogramas, token, user]);
+    loadCronogramas();
+  }, [loadCronogramas]);
 
   useEffect(() => {
     debouncedSearch(searchQuery);
   }, [searchQuery, debouncedSearch]);
 
-  // Estado de carregamento da autenticação
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Carregando...</Text>
-      </View>
-    );
-  }
-
-  // Se não autenticado, retorna null (redirecionamento acontece no useEffect)
-  if (!token || !user) {
-    return null;
-  }
-
   const handleDeleteCronograma = (cronograma: Cronograma) => {
-    console.log('Abrindo diálogo de exclusão para:', cronograma.id);
-    setCronogramaToDelete(cronograma);
-    setDialogVisible(true);
-  };
-
-  const hideDialog = () => {
-    setDialogVisible(false);
-    setCronogramaToDelete(null);
-  };
-
-  const confirmDeletion = async () => {
-    if (!cronogramaToDelete) return;
-
-    console.log('Usuário confirmou exclusão, iniciando processo para:', cronogramaToDelete.id);
-    try {
-      const response = await api.deleteCronograma(cronogramaToDelete.id);
-      if (response.success) {
-        showSnackbar('Cronograma excluído com sucesso!', 'success');
-        loadCronogramas();
-      } else {
-        showSnackbar(response.message || 'Não foi possível excluir o cronograma.', 'error');
-      }
-    } catch (err) {
-      console.error('Erro ao excluir cronograma:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Verifique sua conexão e tente novamente.';
-      showSnackbar(`Erro ao excluir: ${errorMessage}`, 'error');
-    } finally {
-      hideDialog();
-    }
+    console.log('handleDeleteCronograma chamado para:', cronograma.id);
+    Alert.alert(
+      'Confirmar Exclusão',
+      `Deseja realmente excluir o cronograma de ${formatPeriod(cronograma.mes, cronograma.ano)}?\n\nEsta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            console.log('Usuário confirmou exclusão, iniciando processo...');
+            try {
+              console.log('Tentando excluir cronograma:', cronograma.id);
+              const response = await api.deleteCronograma(cronograma.id);
+              console.log('Resposta da exclusão:', response);
+              if (response.success) {
+                Alert.alert('Sucesso', 'Cronograma excluído com sucesso!');
+                loadCronogramas();
+              } else {
+                Alert.alert('Erro', response.message || 'Não foi possível excluir o cronograma.');
+              }
+            } catch (err) {
+              console.error('Erro ao excluir cronograma:', err);
+              Alert.alert('Erro', 'Não foi possível excluir o cronograma.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderCronograma = ({ item }: { item: Cronograma }) => (
@@ -276,71 +240,46 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.userInfo}>
-        <Text style={styles.welcomeText}>
-          Olá, {user?.nome}! 👋
-        </Text>
-        <Text style={styles.userDetails}>
-          {user?.cargo} | {cronogramas.length} cronograma{cronogramas.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
-      
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Buscar por UBSF, enfermeiro ou médico..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchbar}
-        />
-      </View>
-      
-      {error && !refreshing && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{error}</Text>
-        </View>
-      )}
-      
-      <FlatList
-        data={filteredCronogramas}
-        renderItem={renderCronograma}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => loadCronogramas(true)}
-            colors={[Colors.primary]}
+    <AuthGuard>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.searchContainer}>
+          <Searchbar
+            placeholder="Buscar por UBSF, enfermeiro ou médico..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchbar}
           />
-        }
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
-      
-      <Portal>
-        <Dialog visible={dialogVisible} onDismiss={hideDialog}>
-          <Dialog.Title>Confirmar Exclusão</Dialog.Title>
-          <Dialog.Content>
-            <Paragraph>
-              {cronogramaToDelete && `Deseja realmente excluir o cronograma de ${formatPeriod(cronogramaToDelete.mes, cronogramaToDelete.ano)}?`}
-              {'\n\n'}Esta ação não pode ser desfeita.
-            </Paragraph>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={hideDialog}>Cancelar</Button>
-            <Button onPress={confirmDeletion} textColor={Colors.error}>Excluir</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-      
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => router.push('/create')}
-        label="Novo Cronograma"
-      />
-    </SafeAreaView>
+        </View>
+        
+        <FlatList
+          data={filteredCronogramas}
+          renderItem={renderCronograma}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadCronogramas(true)}
+              colors={[Colors.primary]}
+            />
+          }
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+        />
+        
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          onPress={() => router.push('/create')}
+          label="Novo Cronograma"
+        />
+      </SafeAreaView>
+    </AuthGuard>
   );
+}
+
+export default function ProtectedHomeScreen() {
+  return <HomeScreen />;
 }
 
 const styles = StyleSheet.create({
@@ -471,32 +410,5 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: Spacing.lg,
-  },
-  errorBanner: {
-    padding: Spacing.md,
-    backgroundColor: Colors.error,
-  },
-  errorBannerText: {
-    color: Colors.background,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  userInfo: {
-    padding: Spacing.md,
-    backgroundColor: Colors.primaryLight,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.primary + '20',
-  },
-  welcomeText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.primary,
-    marginBottom: Spacing.xs,
-  },
-  userDetails: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    textTransform: 'capitalize',
   },
 });

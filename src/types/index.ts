@@ -1,4 +1,4 @@
-import { DiaSemana } from "../utils";
+import type { DiaSemana } from "../utils";
 
 export interface Cronograma {
   id: string;
