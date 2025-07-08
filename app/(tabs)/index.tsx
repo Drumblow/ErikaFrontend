@@ -20,16 +20,22 @@ export default function TabIndexScreen() {
   const fetchCronogramas = useCallback(async () => {
     if (!user) return;
     
+    setLoading(true);
     setError(null);
     try {
       const response = await api.getCronogramas();
-      if (response.success && response.data.cronogramas) {
-        setCronogramas(response.data.cronogramas);
+      
+      if (response.success && response.data) {
+        const scheduleList = response.data.cronogramas || response.data.items || [];
+        setCronogramas(scheduleList);
+        console.log(`✅ Cronogramas carregados: ${scheduleList.length}`);
       } else {
         setError(response.message || "Não foi possível carregar os cronogramas.");
+        setCronogramas([]);
       }
     } catch (err) {
       setError("Ocorreu um erro de rede. Tente novamente.");
+      setCronogramas([]);
       console.error(err);
     } finally {
       setLoading(false);
@@ -39,7 +45,6 @@ export default function TabIndexScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
       fetchCronogramas();
     }, [fetchCronogramas])
   );

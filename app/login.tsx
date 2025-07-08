@@ -22,7 +22,8 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signIn(email, password);
-      router.replace('/');
+      // A navegação será tratada pelo AuthGuard no _layout.tsx
+      // router.replace('/');
     } catch (error) {
       Alert.alert('Erro de Login', 'As credenciais estão incorretas ou o usuário não existe.');
       console.error(error);
