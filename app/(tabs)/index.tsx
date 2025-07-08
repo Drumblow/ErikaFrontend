@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Text, Title, ActivityIndicator, Card, Button, Paragraph } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
+import { Text, Title, ActivityIndicator, Card, Button, Paragraph, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, router } from 'expo-router';
 
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Colors } from '../../src/constants/theme';
@@ -87,16 +87,18 @@ export default function TabIndexScreen() {
         data={cronogramas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <Card.Title 
-              title={`Cronograma de ${getMesNome(item.mes)}/${item.ano}`}
-              subtitle={item.nomeUBSF || 'UBSF não informada'}
-            />
-            <Card.Content>
-              <Paragraph>Enfermeiro(a): {item.enfermeiro || 'Não informado'}</Paragraph>
-              <Paragraph>Médico(a): {item.medico || 'Não informado'}</Paragraph>
-            </Card.Content>
-          </Card>
+          <Pressable onPress={() => router.push(`/atividades/${item.id}`)}>
+            <Card style={styles.card}>
+              <Card.Title 
+                title={`Cronograma de ${getMesNome(item.mes)}/${item.ano}`}
+                subtitle={item.nomeUBSF || 'UBSF não informada'}
+              />
+              <Card.Content>
+                <Paragraph>Enfermeiro(a): {item.enfermeiro || 'Não informado'}</Paragraph>
+                <Paragraph>Médico(a): {item.medico || 'Não informado'}</Paragraph>
+              </Card.Content>
+            </Card>
+          </Pressable>
         )}
         contentContainerStyle={styles.list}
         refreshControl={
@@ -115,6 +117,11 @@ export default function TabIndexScreen() {
       <View style={styles.content}>
         {renderContent()}
       </View>
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => router.push('/create')}
+      />
     </SafeAreaView>
   );
 }
@@ -149,5 +156,12 @@ const styles = StyleSheet.create({
   },
   card: {
     marginVertical: 8,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.primary,
   }
 }); 
