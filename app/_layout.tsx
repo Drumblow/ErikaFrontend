@@ -9,15 +9,22 @@ import { Colors } from '../src/constants/theme';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { SnackbarProvider } from '../src/contexts/SnackbarContext';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Impede o auto-esconder da tela de splash
 SplashScreen.preventAutoHideAsync();
 
-function AuthGuard() {
+function RootLayoutNav() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
 
   useEffect(() => {
-    // A lógica de redirecionamento só roda DEPOIS de carregar o usuário.
+    // Esconde a tela de splash assim que a autenticação terminar
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    // Se estiver carregando, não faz nada. O redirecionamento ocorre após o carregamento.
     if (isLoading) {
       return;
     }
@@ -31,84 +38,38 @@ function AuthGuard() {
     }
   }, [user, isLoading, segments]);
 
-  // Se estiver carregando a autenticação, não mostramos nada para evitar
-  // que a tela "pisque" para o login antes de redirecionar.
-  if (isLoading) {
-    return null;
-  }
-
-  // A Stack de navegação é renderizada aqui, após a lógica de guarda.
-  return <Stack
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: Colors.primary,
-              },
-              headerTintColor: Colors.text.white,
-              headerTitleStyle: {
-                fontWeight: '600',
-              },
-              headerShadowVisible: true,
-            }}
-          >
-            <Stack.Screen 
-              name="(tabs)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="login" 
-              options={{ 
-                title: 'Login',
-                headerShown: false,
-              }} 
-            />
-            <Stack.Screen 
-              name="register" 
-              options={{ 
-                title: 'Cadastro',
-                headerShown: false,
-              }} 
-            />
-            <Stack.Screen 
-              name="create" 
-              options={{ 
-                title: 'Novo Cronograma',
-                presentation: 'modal',
-              }} 
-            />
-            <Stack.Screen 
-              name="edit/[id]" 
-              options={{ 
-                title: 'Editar Cronograma',
-              }} 
-            />
-            <Stack.Screen 
-              name="preview/[id]" 
-              options={{ 
-                title: 'Visualizar Cronograma',
-              }} 
-            />
-            <Stack.Screen 
-              name="atividades/[cronogramaId]" 
-              options={{ 
-                title: 'Atividades',
-              }} 
-            />
-            <Stack.Screen 
-              name="atividade/create/[cronogramaId]" 
-              options={{ 
-                title: 'Nova Atividade',
-                presentation: 'modal',
-              }} 
-            />
-            <Stack.Screen 
-              name="atividade/edit/[id]" 
-              options={{ 
-                title: 'Editar Atividade',
-                presentation: 'modal',
-              }} 
-            />
-            {/* A rota de index é removida pois (tabs) se torna a nova rota principal */}
-          </Stack>;
+  // Enquanto isLoading for true, a tela de splash permanecerá visível.
+  // A Stack é renderizada imediatamente para evitar o erro de navegação.
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: Colors.primary,
+        },
+        headerTintColor: Colors.text.white,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+        headerShadowVisible: true,
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ title: 'Login', headerShown: false }} />
+      <Stack.Screen name="register" options={{ title: 'Cadastro', headerShown: false }} />
+      <Stack.Screen name="create" options={{ title: 'Novo Cronograma', presentation: 'modal' }} />
+      <Stack.Screen name="edit/[id]" options={{ title: 'Editar Cronograma' }} />
+      <Stack.Screen name="preview/[id]" options={{ title: 'Visualizar Cronograma' }} />
+      <Stack.Screen name="atividades/[cronogramaId]" options={{ title: 'Atividades' }} />
+      <Stack.Screen
+        name="atividade/create/[cronogramaId]"
+        options={{ title: 'Nova Atividade', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="atividade/edit/[id]"
+        options={{ title: 'Editar Atividade', presentation: 'modal' }}
+      />
+    </Stack>
+  );
 }
 
 const paperTheme = {
@@ -161,13 +122,15 @@ export default function RootLayout() {
     // Add custom fonts here if needed
   });
 
+  // Expo Router usa um Error Boundary para pegar erros na fase de renderização.
+  // Se as fontes falharem ao carregar, ele vai lançar um erro.
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
+    if (error) throw error;
+  }, [error]);
 
-  if (!loaded && !error) {
+  // Enquanto as fontes estiverem carregando, a tela de splash ficará visível
+  // graças ao `SplashScreen.preventAutoHideAsync()`.
+  if (!loaded) {
     return null;
   }
 
@@ -178,7 +141,7 @@ export default function RootLayout() {
           <AuthProvider>
             <SnackbarProvider>
               <StatusBar style="dark" backgroundColor={Colors.surface} />
-              <AuthGuard />
+              <RootLayoutNav />
             </SnackbarProvider>
           </AuthProvider>
         </PaperProvider>
