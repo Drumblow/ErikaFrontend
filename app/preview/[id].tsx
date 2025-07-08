@@ -29,8 +29,9 @@ import { api } from '../../src/services/api';
 import { Cronograma, Atividade } from '../../src/types';
 import { Colors, Spacing, Shadows } from '../../src/constants/theme';
 import { formatPeriod, formatDate, formatDiaSemana, getDaysInMonth } from '../../src/utils';
+import { AuthGuard } from '../../src/components/AuthGuard';
 
-export default function PreviewCronogramaScreen() {
+function PreviewCronogramaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [cronograma, setCronograma] = useState<Cronograma | null>(null);
@@ -634,3 +635,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 });
+
+export default function ProtectedPreviewCronogramaScreen() {
+  return (
+    <AuthGuard>
+      <PreviewCronogramaScreen />
+    </AuthGuard>
+  );
+}

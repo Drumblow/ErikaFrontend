@@ -22,6 +22,7 @@ import RNPickerSelect from 'react-native-picker-select';
 import { api } from '../src/services/api';
 import { CreateCronogramaData, MESES } from '../src/types';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
+import { AuthGuard } from '../src/components/AuthGuard';
 
 interface FormData {
   mes: number | undefined;
@@ -39,7 +40,7 @@ interface FormErrors {
   medico?: string;
 }
 
-export default function CreateCronogramaScreen() {
+function CreateCronogramaScreen() {
   const currentYear = new Date().getFullYear();
   
   const [formData, setFormData] = useState<FormData>({
@@ -376,3 +377,11 @@ const pickerSelectStyles = StyleSheet.create({
     color: Colors.text.hint,
   },
 });
+
+export default function ProtectedCreateCronogramaScreen() {
+  return (
+    <AuthGuard>
+      <CreateCronogramaScreen />
+    </AuthGuard>
+  );
+}

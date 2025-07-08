@@ -25,6 +25,7 @@ import { Cronograma, UpdateCronogramaData } from '../../src/types';
 import { Colors, Spacing, Shadows } from '../../src/constants/theme';
 import { formatPeriod } from '../../src/utils';
 import { useSnackbar } from '../../src/contexts/SnackbarContext';
+import { AuthGuard } from '../../src/components/AuthGuard';
 
 interface FormData {
   nomeUBSF: string;
@@ -38,7 +39,7 @@ interface FormErrors {
   medico?: string;
 }
 
-export default function EditCronogramaScreen() {
+function EditCronogramaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [cronograma, setCronograma] = useState<Cronograma | null>(null);
@@ -387,3 +388,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 });
+
+export default function ProtectedEditCronogramaScreen() {
+  return (
+    <AuthGuard>
+      <EditCronogramaScreen />
+    </AuthGuard>
+  );
+}

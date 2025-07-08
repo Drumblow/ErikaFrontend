@@ -29,8 +29,9 @@ import { Cronograma, Atividade } from '../../src/types';
 import { Colors, Spacing, Shadows } from '../../src/constants/theme';
 import { formatDate, formatDiaSemana, formatPeriod, debounce, filterBySearch, DiaSemana } from '../../src/utils';
 import { useSnackbar } from '../../src/contexts/SnackbarContext';
+import { AuthGuard } from '../../src/components/AuthGuard';
 
-export default function AtividadesScreen() {
+function AtividadesScreen() {
   const { cronogramaId } = useLocalSearchParams<{ cronogramaId: string }>();
   
   const [cronograma, setCronograma] = useState<Cronograma | null>(null);
@@ -554,3 +555,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 });
+
+export default function ProtectedAtividadesScreen() {
+  return (
+    <AuthGuard>
+      <AtividadesScreen />
+    </AuthGuard>
+  );
+}

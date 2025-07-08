@@ -240,46 +240,48 @@ function HomeScreen() {
   }
 
   return (
-    <AuthGuard>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.searchContainer}>
-          <Searchbar
-            placeholder="Buscar por UBSF, enfermeiro ou médico..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchbar}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Buscar por UBSF, enfermeiro ou médico..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchbar}
+        />
+      </View>
+      
+      <FlatList
+        data={filteredCronogramas}
+        renderItem={renderCronograma}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadCronogramas(true)}
+            colors={[Colors.primary]}
           />
-        </View>
-        
-        <FlatList
-          data={filteredCronogramas}
-          renderItem={renderCronograma}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => loadCronogramas(true)}
-              colors={[Colors.primary]}
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-          showsVerticalScrollIndicator={false}
-        />
-        
-        <FAB
-          icon="plus"
-          style={styles.fab}
-          onPress={() => router.push('/create')}
-          label="Novo Cronograma"
-        />
-      </SafeAreaView>
-    </AuthGuard>
+        }
+        ListEmptyComponent={renderEmptyState}
+        showsVerticalScrollIndicator={false}
+      />
+      
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => router.push('/create')}
+        label="Novo Cronograma"
+      />
+    </SafeAreaView>
   );
 }
 
 export default function ProtectedHomeScreen() {
-  return <HomeScreen />;
+  return (
+    <AuthGuard>
+      <HomeScreen />
+    </AuthGuard>
+  );
 }
 
 const styles = StyleSheet.create({

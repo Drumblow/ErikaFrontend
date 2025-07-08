@@ -25,8 +25,9 @@ import { Cronograma, CreateAtividadeData } from '../../../src/types';
 import { Colors, Spacing } from '../../../src/constants/theme';
 import { formatPeriod, getDaysInMonth, getDayName, getDiaSemanaEnum, formatDate } from '../../../src/utils';
 import { useSnackbar } from '../../../src/contexts/SnackbarContext';
+import { AuthGuard } from '../../../src/components/AuthGuard';
 
-export default function CreateAtividadeScreen() {
+function CreateAtividadeScreen() {
   const { cronogramaId } = useLocalSearchParams<{ cronogramaId: string }>();
   
   const [cronograma, setCronograma] = useState<Cronograma | null>(null);
@@ -222,3 +223,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
 });
+
+export default function ProtectedCreateAtividadeScreen() {
+  return (
+    <AuthGuard>
+      <CreateAtividadeScreen />
+    </AuthGuard>
+  );
+}

@@ -27,6 +27,7 @@ import { Atividade, Cronograma, UpdateAtividadeData } from '../../../src/types';
 import { Colors, Spacing, Shadows } from '../../../src/constants/theme';
 import { DiaSemana, formatPeriod, getDaysInMonth, isValidDate, getDayName, getDiaSemanaEnum, formatDate } from '../../../src/utils';
 import { useSnackbar } from '../../../src/contexts/SnackbarContext';
+import { AuthGuard } from '../../../src/components/AuthGuard';
 
 const DIAS_SEMANA_OPTIONS: { label: string; value: DiaSemana }[] = [
   { label: 'Segunda - Manhã', value: 'SEGUNDA-MANHÃ' },
@@ -43,7 +44,7 @@ const DIAS_SEMANA_OPTIONS: { label: string; value: DiaSemana }[] = [
   { label: 'Sábado - Tarde', value: 'SABADO-TARDE' },
 ];
 
-export default function EditAtividadeScreen() {
+function EditAtividadeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [atividade, setAtividade] = useState<Atividade | null>(null);
@@ -454,3 +455,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 });
+
+export default function ProtectedEditAtividadeScreen() {
+  return (
+    <AuthGuard>
+      <EditAtividadeScreen />
+    </AuthGuard>
+  );
+}
