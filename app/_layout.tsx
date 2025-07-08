@@ -17,27 +17,27 @@ function AuthGuard() {
   const segments = useSegments();
 
   useEffect(() => {
-    // Se ainda está autenticando, não fazemos nada até que se resolva.
+    // A lógica de redirecionamento só roda DEPOIS de carregar o usuário.
     if (isLoading) {
       return;
     }
 
-    const rootSegment = segments[0];
-    const isAuthRoute = rootSegment === 'login' || rootSegment === 'register';
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'register';
 
-    // Se o usuário está logado e tenta acessar as rotas de login/cadastro,
-    // o redirecionamos para a tela principal.
-    if (user && isAuthRoute) {
+    if (user && inAuthGroup) {
       router.replace('/(tabs)');
-    } 
-    // Se o usuário NÃO está logado e tenta acessar qualquer rota que NÃO seja
-    // de login/cadastro, o redirecionamos para a tela de login.
-    else if (!user && !isAuthRoute) {
+    } else if (!user && !inAuthGroup) {
       router.replace('/login');
     }
   }, [user, isLoading, segments]);
 
-  // Enquanto carrega, podemos mostrar a SplashScreen ou null para evitar piscar a tela
+  // Se estiver carregando a autenticação, não mostramos nada para evitar
+  // que a tela "pisque" para o login antes de redirecionar.
+  if (isLoading) {
+    return null;
+  }
+
+  // A Stack de navegação é renderizada aqui, após a lógica de guarda.
   return <Stack
             screenOptions={{
               headerStyle: {
