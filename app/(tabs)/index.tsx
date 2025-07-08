@@ -87,8 +87,8 @@ export default function TabIndexScreen() {
         data={cronogramas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/atividades/${item.id}`)}>
-            <Card style={styles.card}>
+          <Card style={styles.card}>
+            <Pressable onPress={() => router.push(`/atividades/${item.id}`)}>
               <Card.Title 
                 title={`Cronograma de ${getMesNome(item.mes)}/${item.ano}`}
                 subtitle={item.nomeUBSF || 'UBSF não informada'}
@@ -97,8 +97,16 @@ export default function TabIndexScreen() {
                 <Paragraph>Enfermeiro(a): {item.enfermeiro || 'Não informado'}</Paragraph>
                 <Paragraph>Médico(a): {item.medico || 'Não informado'}</Paragraph>
               </Card.Content>
-            </Card>
-          </Pressable>
+            </Pressable>
+            <Card.Actions>
+              <Button 
+                icon="file-pdf-box"
+                onPress={() => router.push(`/preview/${item.id}`)}
+              >
+                Gerar PDF
+              </Button>
+            </Card.Actions>
+          </Card>
         )}
         contentContainerStyle={styles.list}
         refreshControl={
