@@ -9,37 +9,83 @@ import { Colors } from '../src/constants/theme';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { SnackbarProvider } from '../src/contexts/SnackbarContext';
 
-// Impede o auto-esconder da tela de splash
+// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+const paperTheme = {
+  colors: {
+    primary: Colors.primary,
+    secondary: Colors.secondary,
+    surface: Colors.surface,
+    background: Colors.background,
+    error: Colors.error,
+    onSurface: Colors.text.primary,
+    onBackground: Colors.text.primary,
+    // Cores adicionais necessárias para o Material Design 3
+    primaryContainer: 'rgba(33, 150, 243, 0.12)', // primary com 12% opacity
+    onPrimary: Colors.text.white,
+    onPrimaryContainer: Colors.text.primary,
+    secondaryContainer: 'rgba(76, 175, 80, 0.12)', // secondary com 12% opacity
+    onSecondary: Colors.text.white,
+    onSecondaryContainer: Colors.text.primary,
+    tertiary: Colors.primary,
+    onTertiary: Colors.text.white,
+    tertiaryContainer: 'rgba(33, 150, 243, 0.12)',
+    onTertiaryContainer: Colors.text.primary,
+    surfaceVariant: '#F5F5F5',
+    onSurfaceVariant: Colors.text.secondary,
+    outline: 'rgba(117, 117, 117, 0.5)',
+    shadow: '#000000',
+    inverseSurface: Colors.text.primary,
+    inverseOnSurface: Colors.surface,
+    inversePrimary: Colors.primary,
+    backdrop: 'rgba(0, 0, 0, 0.4)',
+    surfaceDisabled: 'rgba(255, 255, 255, 0.6)',
+    onSurfaceDisabled: 'rgba(33, 33, 33, 0.6)',
+    errorContainer: 'rgba(244, 67, 54, 0.12)',
+    onError: Colors.text.white,
+    onErrorContainer: Colors.text.primary,
+    // Propriedade elevation necessária para o Searchbar
+    elevation: {
+      level0: 'transparent',
+      level1: 'rgba(255, 255, 255, 0.05)', // 5% opacity
+      level2: 'rgba(255, 255, 255, 0.08)', // 8% opacity
+      level3: 'rgba(255, 255, 255, 0.11)', // 11% opacity
+      level4: 'rgba(255, 255, 255, 0.12)', // 12% opacity
+      level5: 'rgba(255, 255, 255, 0.14)', // 14% opacity
+    },
+  },
+};
+
+// Componente interno que tem acesso ao contexto de autenticação
 function RootLayoutNav() {
-  const { user, isLoading } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const segments = useSegments();
 
   useEffect(() => {
-    // Esconde a tela de splash assim que a autenticação terminar
-    if (!isLoading) {
-      SplashScreen.hideAsync();
+    if (isLoading) return; // Aguarda o carregamento da autenticação
+
+    const inAuthGroup = segments[0] === '(tabs)';
+    const inAuthPages = segments[0] === 'login' || segments[0] === 'register';
+    const inRootPage = segments.length === 0;
+
+    console.log('🔍 Auth check:', { user: !!user, token: !!token, segments, inAuthGroup, inAuthPages, inRootPage });
+
+    if (!token || !user) {
+      // Usuário não autenticado - redirecionar para login
+      if (inAuthGroup || inRootPage) {
+        console.log('🚨 Redirecionando para login - usuário não autenticado');
+        router.replace('/login');
+      }
+    } else {
+      // Usuário autenticado - redirecionar para área protegida
+      if (inAuthPages || inRootPage) {
+        console.log('✅ Redirecionando para área protegida - usuário autenticado');
+        router.replace('/(tabs)');
+      }
     }
-  }, [isLoading]);
+  }, [user, token, isLoading, segments]);
 
-  useEffect(() => {
-    // Se estiver carregando, não faz nada. O redirecionamento ocorre após o carregamento.
-    if (isLoading) {
-      return;
-    }
-
-    const inAuthGroup = segments[0] === 'login' || segments[0] === 'register';
-
-    if (user && inAuthGroup) {
-      router.replace('/(tabs)');
-    } else if (!user && !inAuthGroup) {
-      router.replace('/login');
-    }
-  }, [user, isLoading, segments]);
-
-  // Enquanto isLoading for true, a tela de splash permanecerá visível.
-  // A Stack é renderizada imediatamente para evitar o erro de navegação.
   return (
     <Stack
       screenOptions={{
@@ -53,84 +99,81 @@ function RootLayoutNav() {
         headerShadowVisible: true,
       }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ title: 'Login', headerShown: false }} />
-      <Stack.Screen name="register" options={{ title: 'Cadastro', headerShown: false }} />
-      <Stack.Screen name="create" options={{ title: 'Novo Cronograma', presentation: 'modal' }} />
-      <Stack.Screen name="edit/[id]" options={{ title: 'Editar Cronograma' }} />
-      <Stack.Screen name="preview/[id]" options={{ title: 'Visualizar Cronograma' }} />
-      <Stack.Screen name="atividades/[cronogramaId]" options={{ title: 'Atividades' }} />
-      <Stack.Screen
-        name="atividade/create/[cronogramaId]"
-        options={{ title: 'Nova Atividade', presentation: 'modal' }}
+      <Stack.Screen 
+        name="(tabs)" 
+        options={{ 
+          headerShown: false,
+        }} 
       />
-      <Stack.Screen
-        name="atividade/edit/[id]"
-        options={{ title: 'Editar Atividade', presentation: 'modal' }}
+      <Stack.Screen 
+        name="create" 
+        options={{ 
+          title: 'Novo Cronograma',
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="edit/[id]" 
+        options={{ 
+          title: 'Editar Cronograma',
+        }} 
+      />
+      <Stack.Screen 
+        name="preview/[id]" 
+        options={{ 
+          title: 'Visualizar Cronograma',
+        }} 
+      />
+      <Stack.Screen 
+        name="atividades/[cronogramaId]" 
+        options={{ 
+          title: 'Atividades',
+        }} 
+      />
+      <Stack.Screen 
+        name="atividade/create/[cronogramaId]" 
+        options={{ 
+          title: 'Nova Atividade',
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="atividade/edit/[id]" 
+        options={{ 
+          title: 'Editar Atividade',
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="login" 
+        options={{ 
+          title: 'Login',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="register" 
+        options={{ 
+          title: 'Cadastro',
+          headerShown: false,
+        }} 
       />
     </Stack>
   );
 }
-
-const paperTheme = {
-  colors: {
-    primary: Colors.primary,
-    onPrimary: Colors.text.white,
-    primaryContainer: Colors.primaryLight,
-    onPrimaryContainer: Colors.primaryDark,
-    secondary: Colors.secondary,
-    onSecondary: Colors.text.white,
-    secondaryContainer: Colors.secondaryLight,
-    onSecondaryContainer: Colors.secondaryDark,
-    tertiary: Colors.accent,
-    onTertiary: Colors.text.white,
-    tertiaryContainer: '#FFE0B2',
-    onTertiaryContainer: '#E65100',
-    error: Colors.error,
-    onError: Colors.text.white,
-    errorContainer: '#FFEBEE',
-    onErrorContainer: '#B71C1C',
-    background: Colors.background,
-    onBackground: Colors.text.primary,
-    surface: Colors.surface,
-    onSurface: Colors.text.primary,
-    surfaceVariant: '#F5F5F5',
-    onSurfaceVariant: Colors.text.secondary,
-    outline: Colors.border,
-    outlineVariant: Colors.divider,
-    shadow: Colors.shadow,
-    scrim: '#000000',
-    inverseSurface: Colors.text.primary,
-    inverseOnSurface: Colors.surface,
-    inversePrimary: Colors.primaryLight,
-    elevation: {
-      level0: 'transparent',
-      level1: Colors.surface,
-      level2: '#F8F8F8',
-      level3: '#F0F0F0',
-      level4: '#EEEEEE',
-      level5: '#E8E8E8',
-    },
-    surfaceDisabled: Colors.text.disabled,
-    onSurfaceDisabled: Colors.text.hint,
-    backdrop: 'rgba(0, 0, 0, 0.4)',
-  },
-};
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     // Add custom fonts here if needed
   });
 
-  // Expo Router usa um Error Boundary para pegar erros na fase de renderização.
-  // Se as fontes falharem ao carregar, ele vai lançar um erro.
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
 
-  // Enquanto as fontes estiverem carregando, a tela de splash ficará visível
-  // graças ao `SplashScreen.preventAutoHideAsync()`.
-  if (!loaded) {
+  if (!loaded && !error) {
     return null;
   }
 
@@ -142,6 +185,7 @@ export default function RootLayout() {
             <SnackbarProvider>
               <StatusBar style="dark" backgroundColor={Colors.surface} />
               <RootLayoutNav />
+
             </SnackbarProvider>
           </AuthProvider>
         </PaperProvider>

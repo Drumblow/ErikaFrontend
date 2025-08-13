@@ -27,7 +27,7 @@ import { Colors, Spacing, Shadows } from '../src/constants/theme';
 import { formatPeriod, debounce, filterBySearch } from '../src/utils';
 import { AuthGuard } from '../src/components/AuthGuard';
 
-function HomeScreen() {
+export default function HomeScreen() {
   const [cronogramas, setCronogramas] = useState<Cronograma[]>([]);
   const [filteredCronogramas, setFilteredCronogramas] = useState<Cronograma[]>([]);
   const [loading, setLoading] = useState(true);
@@ -273,14 +273,6 @@ function HomeScreen() {
         label="Novo Cronograma"
       />
     </SafeAreaView>
-  );
-}
-
-export default function ProtectedHomeScreen() {
-  return (
-    <AuthGuard>
-      <HomeScreen />
-    </AuthGuard>
   );
 }
 

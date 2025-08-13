@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { api, setLogoutCallback } from '../services/api';
+import { UpdateUserData } from '../types';
 
 // Storage adapter para web e nativo
 const storage = {
@@ -47,9 +48,20 @@ interface AuthContextData {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
   signUp: (nome: string, email: string, password: string, cargo: string) => Promise<void>;
+  updateUser: (userData: UpdateUserData) => Promise<void>;
+  deleteUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+const AuthContext = createContext<AuthContextData>({
+  user: null,
+  token: null,
+  isLoading: true,
+  signIn: async () => {},
+  signOut: () => {},
+  signUp: async () => {},
+  updateUser: async () => {},
+  deleteUser: async () => {},
+});
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -62,18 +74,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     async function loadStoragedData() {
       try {
+        console.log('🔍 Carregando dados de autenticação do storage...');
         const storagedToken = await storage.getItem(TOKEN_KEY);
         const storagedUser = await storage.getItem(USER_KEY);
+
+        console.log('📦 Dados do storage:', { 
+          hasToken: !!storagedToken, 
+          hasUser: !!storagedUser,
+          tokenPreview: storagedToken ? storagedToken.substring(0, 20) + '...' : null
+        });
 
         if (storagedToken && storagedUser) {
           setToken(storagedToken);
           setUser(JSON.parse(storagedUser));
           api.setAuthToken(storagedToken);
+          console.log('✅ Dados de autenticação carregados com sucesso');
+        } else {
+          console.log('❌ Nenhum dado de autenticação encontrado no storage');
         }
       } catch (e) {
-        console.error("Failed to load auth data from storage", e);
+        console.error("❌ Falha ao carregar dados de autenticação do storage", e);
       } finally {
         setIsLoading(false);
+        console.log('🏁 Carregamento de autenticação finalizado');
       }
     }
 
@@ -156,8 +179,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     api.setAuthToken(null);
   }
 
+  async function updateUser(userData: UpdateUserData) {
+    try {
+      if (!user) {
+        throw new Error('Usuário não está logado');
+      }
+
+      console.log('Atualizando usuário:', userData);
+      
+      const response = await api.updateUser(user.id, userData);
+      
+      console.log('Resposta da atualização:', response);
+      
+      if (response.success && response.data) {
+        const updatedUser = response.data;
+        setUser(updatedUser);
+        
+        await storage.setItem(USER_KEY, JSON.stringify(updatedUser));
+        
+        console.log('Usuário atualizado com sucesso!');
+      } else {
+        throw new Error(response.message || 'Erro ao atualizar usuário');
+      }
+    } catch (error) {
+      console.error('Erro na atualização do usuário:', error);
+      throw error;
+    }
+  }
+
+  async function deleteUser() {
+    try {
+      if (!user) {
+        throw new Error('Usuário não está logado');
+      }
+
+      console.log('Excluindo usuário:', user.id);
+      
+      const response = await api.deleteUser(user.id);
+      
+      console.log('Resposta da exclusão:', response);
+      
+      if (response.success) {
+        // Fazer logout após exclusão
+        await signOut();
+        
+        console.log('Usuário excluído com sucesso!');
+      } else {
+        throw new Error(response.message || 'Erro ao excluir usuário');
+      }
+    } catch (error) {
+      console.error('Erro na exclusão do usuário:', error);
+      throw error;
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, signIn, signOut, signUp }}>
+    <AuthContext.Provider value={{ user, token, isLoading, signIn, signOut, signUp, updateUser, deleteUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -166,4 +243,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export function useAuth() {
   const context = useContext(AuthContext);
   return context;
-} 
+}

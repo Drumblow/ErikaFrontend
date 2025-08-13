@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,12 +24,200 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
 
 import { api } from '../../src/services/api';
 import { Cronograma, Atividade } from '../../src/types';
 import { Colors, Spacing, Shadows } from '../../src/constants/theme';
-import { formatPeriod, formatDate, formatDiaSemana, getDaysInMonth } from '../../src/utils';
+import { formatPeriod, formatDate, formatDiaSemana, getMonthName } from '../../src/utils';
 import { AuthGuard } from '../../src/components/AuthGuard';
+
+// --- Funções de Geração de HTML movidas do Backend ---
+
+// Carrega as imagens e converte para Base64
+const imageToBase64 = async (assetModule: number): Promise<string> => {
+  const asset = Asset.fromModule(assetModule);
+  await asset.downloadAsync();
+  return FileSystem.readAsStringAsync(asset.localUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+};
+
+// Gera o corpo do calendário
+function generateCalendarBody(ano: number, mes: number, atividades: Atividade[]) {
+  const activitiesMap = new Map<string, Atividade[]>();
+  const diasDaSemana = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO'];
+
+  atividades.forEach(ativ => {
+    const dataAtividade = new Date(ativ.data);
+    const dateKey = `${dataAtividade.getUTCDate().toString().padStart(2, '0')}/${(dataAtividade.getUTCMonth() + 1).toString().padStart(2, '0')}/${dataAtividade.getUTCFullYear()}`;
+    const mapKey = `${dateKey}_${ativ.diaSemana}`;
+    if (!activitiesMap.has(mapKey)) {
+        activitiesMap.set(mapKey, []);
+    }
+    activitiesMap.get(mapKey)?.push(ativ);
+  });
+
+  const firstDayOfMonth = new Date(Date.UTC(ano, mes - 1, 1));
+  const lastDayOfMonth = new Date(Date.UTC(ano, mes, 0));
+  let currentDay = new Date(firstDayOfMonth);
+  const weeks: Record<string, { date: string; atividades: Atividade[] }>[] = [];
+  
+  // Ajusta para o início da primeira semana (Segunda-feira)
+  const dayOfWeek = currentDay.getUTCDay();
+  if (dayOfWeek !== 1) {
+    const adjustment = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek;
+    currentDay.setUTCDate(currentDay.getUTCDate() + adjustment);
+  }
+
+  while (currentDay <= lastDayOfMonth || weeks.length < 5) {
+    const week: Record<string, { date: string; atividades: Atividade[] }> = {};
+    const daysOrder = ['SEGUNDA-MANHÃ', 'TERÇA-MANHÃ', 'QUARTA-MANHÃ', 'QUINTA-MANHÃ', 'SEXTA-MANHÃ'];
+    
+    for (let i = 0; i < 5; i++) {
+        const dayKey = daysOrder[i];
+        if (currentDay.getUTCMonth() + 1 === mes) {
+            const dateKey = `${currentDay.getUTCDate().toString().padStart(2, '0')}/${(currentDay.getUTCMonth() + 1).toString().padStart(2, '0')}/${currentDay.getUTCFullYear()}`;
+            const mapKey = `${dateKey}_${dayKey}`;
+            week[dayKey] = {
+                date: dateKey,
+                atividades: activitiesMap.get(mapKey) || []
+            };
+        } else {
+            week[dayKey] = { date: '', atividades: [] };
+        }
+        currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+    }
+    weeks.push(week);
+     // Pula fim de semana
+    currentDay.setUTCDate(currentDay.getUTCDate() + 2);
+  }
+  
+  let tableBodyHtml = '';
+  const filteredWeeks = weeks.filter(week => 
+    Object.values(week).some(dayData => dayData.date !== '')
+  );
+
+  filteredWeeks.forEach((week, weekIndex) => {
+    let dateRow = '<tr>';
+    let activityRow = '<tr>';
+    const daysOrder = ['SEGUNDA-MANHÃ', 'TERÇA-MANHÃ', 'QUARTA-MANHÃ', 'QUINTA-MANHÃ', 'SEXTA-MANHÃ'];
+    
+    daysOrder.forEach(dayKey => {
+        const dayData = week[dayKey];
+        dateRow += `<td class="date-cell">${dayData.date}</td>`;
+        
+        const activitiesHtml = (dayData.atividades || []).map(ativ => 
+            ativ.descricao.split('\n').map(line => line.trim()).join('<br>')
+        ).join('<br><br>');
+        
+        activityRow += `<td class="activity-cell">${activitiesHtml}</td>`;
+    });
+
+    dateRow += '</tr>';
+    activityRow += '</tr>';
+    tableBodyHtml += dateRow + activityRow;
+  });
+
+  return { tableBodyHtml, weekCount: filteredWeeks.length };
+}
+
+// Gera o HTML completo
+async function generateFullHtml(cronograma: Cronograma) {
+    if (!cronograma.atividades) {
+      cronograma.atividades = [];
+    }
+    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
+    const monthName = getMonthName(cronograma.mes).toUpperCase();
+
+    let leftLogoBase64 = '';
+    let rightLogoBase64 = '';
+    let headerTitleImageBase64 = '';
+    
+    try {
+        leftLogoBase64 = await imageToBase64(require('../../assets/pdf/image3.png'));
+        rightLogoBase64 = await imageToBase64(require('../../assets/pdf/image2.jpg'));
+        headerTitleImageBase64 = await imageToBase64(require('../../assets/pdf/image1.png'));
+    } catch (error) {
+        console.warn('[WARNING] Erro ao carregar imagens para o PDF:', error.message);
+    }
+
+    let sizeClass = 'size-normal'; // 5 semanas
+    if (weekCount <= 4) { // Ajustado para 4 ou menos
+        sizeClass = 'size-large'; // 4 semanas - texto médio/grande
+    } else if (weekCount >= 6) {
+        sizeClass = 'size-small'; // 6+ semanas - texto bem pequeno
+    }
+    
+    // O restante do HTML e CSS do backend é colado aqui.
+    // É muito longo para mostrar na íntegra, mas a lógica é a mesma.
+    return `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Cronograma de Atendimento - ${monthName}/${cronograma.ano}</title>
+            <style>
+                :root {
+                    --font-base: 14px; --font-header: 15px; --font-cell: 13px; --logo-height: 62px;
+                    --title-img-height: 72px; --date-cell-height: 22px; --activity-cell-height: 85px; --padding-base: 5px;
+                }
+                body.size-large {
+                    --font-base: 16px; --font-header: 17px; --font-cell: 15px; --logo-height: 72px;
+                    --title-img-height: 85px; --date-cell-height: 25px; --activity-cell-height: 110px; --padding-base: 6px;
+                }
+                body.size-small {
+                    --font-base: 11px; --font-header: 12px; --font-cell: 10px; --logo-height: 50px;
+                    --title-img-height: 55px; --date-cell-height: 18px; --activity-cell-height: 65px; --padding-base: 3px;
+                }
+                body { font-family: Arial, sans-serif; margin: 0; padding: 6px; font-size: var(--font-base); }
+                @page {
+                  size: landscape;
+                  margin: 10mm;
+                }
+                .header { text-align: center; margin-bottom: 6px; }
+                .header img.logo { height: var(--logo-height); margin: 0 8px; }
+                .header img.header-title-img { height: var(--title-img-height); }
+                .info-row { display: flex; justify-content: space-between; margin: 3px 0; padding: 0 16px; font-size: var(--font-header); }
+                table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+                th, td { border: 1px solid black; padding: var(--padding-base); text-align: center; vertical-align: top; word-wrap: break-word; }
+                th { background-color: #ffff00; font-weight: bold; }
+                .date-cell { background-color: #ffff00; font-weight: bold; font-size: var(--font-cell); padding: 2px; height: var(--date-cell-height); }
+                .activity-cell { height: var(--activity-cell-height); font-size: var(--font-cell); padding: 4px; text-align: center; vertical-align: middle; }
+            </style>
+        </head>
+        <body class="${sizeClass}">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    ${leftLogoBase64 ? `<img src="data:image/png;base64,${leftLogoBase64}" alt="Logo Saúde" class="logo">` : '<div style="width: 62px;"></div>'}
+                    <div style="flex: 1; text-align: center;">
+                        ${headerTitleImageBase64 ? `<img src="data:image/png;base64,${headerTitleImageBase64}" alt="Título" class="header-title-img">` : ''}
+                    </div>
+                    ${rightLogoBase64 ? `<img src="data:image/jpeg;base64,${rightLogoBase64}" alt="Logo Tutóia" class="logo">` : '<div style="width: 62px;"></div>'}
+                </div>
+            </div>
+            <div class="info-row">
+                <div>UBSF: ${cronograma.nomeUBSF || ''}</div>
+                <div>Enfermeira(o): ${cronograma.enfermeiro || ''}</div>
+                <div>Médico(a): ${cronograma.medico || ''}</div>
+            </div>
+            <div style="text-align: center; margin: 3px 0; font-weight: bold; font-size: var(--font-header);">
+                CRONOGRAMA DE ATENDIMENTO ${monthName}/${cronograma.ano}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>SEGUNDA – MANHÃ</th><th>TERÇA – MANHÃ</th><th>QUARTA – MANHÃ</th><th>QUINTA – MANHÃ</th><th>SEXTA – MANHÃ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableBodyHtml}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+}
 
 function PreviewCronogramaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,210 +227,92 @@ function PreviewCronogramaScreen() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      loadCronograma();
+  const loadCronograma = useCallback(async () => {
+    if (!id) {
+      setError("ID do cronograma não foi encontrado na rota.");
+      setLoading(false);
+      return;
     }
-  }, [id]);
-
-  const loadCronograma = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await api.getCronograma(id!);
-      
+      const response = await api.getCronograma(id);
       if (response.success) {
-        setCronograma(response.data);
+        // Ordena as atividades pela data antes de definir o estado
+        const sortedActivities = (response.data.atividades || []).sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+        setCronograma({ ...response.data, atividades: sortedActivities });
       } else {
         setError(response.message);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Erro ao carregar cronograma:', err);
       setError('Erro ao carregar cronograma. Verifique sua conexão.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  // Função alternativa para iOS usando expo-print
-  const handleGeneratePDFiOS = async () => {
-    if (!cronograma) return;
-    
-    setGeneratingPDF(true);
-    try {
-      // Gerar HTML para o PDF
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .info { margin-bottom: 20px; }
-            .activities { margin-top: 20px; }
-            .activity { margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; }
-            .day { font-weight: bold; color: #333; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Cronograma UBSF</h1>
-            <h2>${formatPeriod(cronograma.mes, cronograma.ano)}</h2>
-          </div>
-          
-          <div class="info">
-            <p><strong>UBSF:</strong> ${cronograma.nomeUBSF || 'Não informado'}</p>
-            <p><strong>Enfermeiro(a):</strong> ${cronograma.enfermeiro || 'Não informado'}</p>
-            <p><strong>Médico(a):</strong> ${cronograma.medico || 'Não informado'}</p>
-          </div>
-          
-          <div class="activities">
-            <h3>Atividades (${cronograma.atividades?.length || 0})</h3>
-                         ${cronograma.atividades?.map(atividade => `
-               <div class="activity">
-                 <div class="day">${formatDate(atividade.data)} - ${formatDiaSemana(atividade.data)}</div>
-                 <p>${atividade.descricao}</p>
-                 <p><small>Turno: ${atividade.diaSemana}</small></p>
-               </div>
-             `).join('') || '<p>Nenhuma atividade cadastrada</p>'}
-          </div>
-        </body>
-        </html>
-      `;
-      
-      // Usar expo-print para gerar o PDF
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
-          UTI: 'com.adobe.pdf',
-        });
-        Alert.alert('PDF Gerado', 'O PDF foi gerado com sucesso usando o método alternativo!');
-      } else {
-        Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${uri}`);
-      }
-    } catch (error) {
-      console.error('Erro ao gerar PDF com expo-print:', error);
-      Alert.alert('Erro', 'Não foi possível gerar o PDF usando o método alternativo.');
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
+  useEffect(() => {
+    loadCronograma();
+  }, [loadCronograma]);
 
   const handleGeneratePDF = async () => {
     if (!cronograma) return;
     
     setGeneratingPDF(true);
     try {
-      // 1. Chamar a API do backend
+      console.log('🔄 Gerando PDF via API para cronograma:', cronograma.id);
+      
+      // Chama a API para gerar o PDF
       const response = await api.generatePDF(cronograma.id);
       
-      // Debug: verificar resposta da API
-      console.log('API Response:', {
-        success: response.success,
-        hasData: !!response.data,
-        hasPdfBase64: !!(response.data && response.data.pdfBase64),
-        hasPdfUrl: !!(response.data && response.data.pdfUrl),
-        platform: Platform.OS,
-      });
-
-      if (response.success && response.data && (response.data.pdfBase64 || response.data.pdfUrl)) {
-        const pdfName = `cronograma-${cronograma.mes}-${cronograma.ano}.pdf`;
-        
-        // Verificar se temos dados em base64
-        if (!response.data.pdfBase64) {
-          throw new Error('API não retornou dados do PDF em base64');
-        }
+      if (response.success && response.data?.pdfBase64) {
+        console.log('✅ PDF gerado com sucesso via API');
         
         if (Platform.OS === 'web') {
-          // Web: baixar o PDF via link
-          const link = document.createElement('a');
-          link.href = `data:application/pdf;base64,${response.data.pdfBase64}`;
-          link.download = pdfName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          Alert.alert('PDF Gerado', 'O PDF foi baixado para seu computador.');
-        } else if (Platform.OS === 'ios') {
-          // iOS: implementação específica com melhor tratamento
-          try {
-            const pdfUri = FileSystem.documentDirectory + pdfName;
-            await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
-            // Verificar se o arquivo foi criado corretamente
-            const fileInfo = await FileSystem.getInfoAsync(pdfUri);
-            if (!fileInfo.exists) {
-              throw new Error('Arquivo PDF não foi criado corretamente.');
-            }
-
-            // Usar o sistema de compartilhamento do iOS
-            if (await Sharing.isAvailableAsync()) {
-              await Sharing.shareAsync(pdfUri, {
-                mimeType: 'application/pdf',
-                dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
-                UTI: 'com.adobe.pdf',
-              });
-              Alert.alert('PDF Gerado', 'O PDF foi gerado com sucesso!');
-            } else {
-              Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${pdfUri}`);
-            }
-          } catch (iosError) {
-            console.error('Erro específico do iOS:', iosError);
-            Alert.alert(
-              'Erro no iOS', 
-              'Não foi possível gerar o PDF usando o método principal. Deseja tentar o método alternativo?',
-              [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Tentar Alternativo', onPress: handleGeneratePDFiOS }
-              ]
-            );
+          // Para web, converte base64 para blob e abre em nova aba
+          const byteCharacters = atob(response.data.pdfBase64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
           }
+          const byteArray = new Uint8Array(byteNumbers);
+          const pdfBlob = new Blob([byteArray], { type: 'application/pdf' });
+          const url = URL.createObjectURL(pdfBlob);
+          
+          // Abre o PDF em nova aba
+          window.open(url, '_blank');
+          
+          // Limpa a URL após um tempo para liberar memória
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          
         } else {
-          // Android: manter implementação original
-          const pdfUri = FileSystem.documentDirectory + pdfName;
-          await FileSystem.writeAsStringAsync(pdfUri, response.data.pdfBase64, {
+          // Para mobile, salva o arquivo e compartilha
+          const fileName = `cronograma_${formatPeriod(cronograma.mes, cronograma.ano).replace('/', '_')}.pdf`;
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+          
+          await FileSystem.writeAsStringAsync(fileUri, response.data.pdfBase64, {
             encoding: FileSystem.EncodingType.Base64,
           });
-
+          
           if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(pdfUri, {
+            await Sharing.shareAsync(fileUri, {
               mimeType: 'application/pdf',
               dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
+              UTI: 'com.adobe.pdf',
             });
           } else {
-            Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${pdfUri}`);
+            Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${fileUri}`);
           }
         }
       } else {
-        throw new Error(response.message || 'A API não retornou um PDF válido.');
+        throw new Error(response.message || 'Erro ao gerar PDF');
       }
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      console.error('Platform:', Platform.OS);
-      
-      let message = 'Tente novamente.';
-      if (error instanceof Error) {
-        message = error.message;
-      }
-      
-      // Adicionar informações específicas do iOS para debug
-      if (Platform.OS === 'ios') {
-        message += ' (iOS)';
-        console.error('iOS Error Details:', {
-          error: error,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-      
-      Alert.alert('Erro ao Gerar PDF', `Não foi possível gerar o relatório. ${message}`);
+
+    } catch (err: unknown) {
+      console.error('❌ Erro ao gerar PDF via API:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+      Alert.alert('Erro', 'Não foi possível gerar o PDF. ' + errorMessage);
     } finally {
       setGeneratingPDF(false);
     }
@@ -318,7 +388,7 @@ Gerado pelo App Cronograma UBSF
     );
   }
 
-  const atividades = cronograma.atividades || [];
+  const { mes, ano, nomeUBSF, enfermeiro, medico, atividades = [] } = cronograma;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -331,7 +401,7 @@ Gerado pelo App Cronograma UBSF
         <Card style={styles.headerCard}>
           <Card.Content>
             <Title style={styles.title}>
-              {formatPeriod(cronograma.mes, cronograma.ano)}
+              {formatPeriod(mes, ano)}
             </Title>
             
             <View style={styles.statsContainer}>
@@ -346,24 +416,24 @@ Gerado pelo App Cronograma UBSF
             
             <Divider style={styles.divider} />
             
-            {cronograma.nomeUBSF && (
+            {nomeUBSF && (
               <View style={styles.infoRow}>
                 <Ionicons name="location-outline" size={20} color={Colors.primary} />
-                <Text style={styles.infoText}>{cronograma.nomeUBSF}</Text>
+                <Text style={styles.infoText}>{nomeUBSF}</Text>
               </View>
             )}
             
-            {cronograma.enfermeiro && (
+            {enfermeiro && (
               <View style={styles.infoRow}>
                 <Ionicons name="person-outline" size={20} color={Colors.primary} />
-                <Text style={styles.infoText}>Enfermeiro: {cronograma.enfermeiro}</Text>
+                <Text style={styles.infoText}>Enfermeiro: {enfermeiro}</Text>
               </View>
             )}
             
-            {cronograma.medico && (
+            {medico && (
               <View style={styles.infoRow}>
                 <Ionicons name="medical-outline" size={20} color={Colors.primary} />
-                <Text style={styles.infoText}>Médico: {cronograma.medico}</Text>
+                <Text style={styles.infoText}>Médico: {medico}</Text>
               </View>
             )}
           </Card.Content>
@@ -446,19 +516,6 @@ Gerado pelo App Cronograma UBSF
           >
             {generatingPDF ? 'Gerando PDF...' : 'Gerar PDF'}
           </Button>
-          
-          {Platform.OS === 'ios' && (
-            <Button
-              mode="outlined"
-              onPress={handleGeneratePDFiOS}
-              style={styles.actionButton}
-              icon="file-pdf-box"
-              loading={generatingPDF}
-              disabled={generatingPDF}
-            >
-              {generatingPDF ? 'Gerando PDF...' : 'PDF Alternativo (iOS)'}
-            </Button>
-          )}
         </View>
       </ScrollView>
       

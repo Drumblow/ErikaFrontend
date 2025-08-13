@@ -9,7 +9,7 @@ import {
   UpdateAtividadeData
 } from '../types';
 
-const API_BASE_URL = 'https://erika-ubsf.vercel.app';
+const API_BASE_URL = 'https://drumblow.mooo.com';
 
 // Callback para logout automático
 let logoutCallback: (() => void) | null = null;
@@ -40,13 +40,29 @@ class ApiService {
       ...options,
     };
 
+    console.log('🌐 API Request:', {
+      url,
+      method: config.method || 'GET',
+      hasToken: !!this.authToken,
+      tokenPreview: this.authToken ? this.authToken.substring(0, 20) + '...' : null,
+      headers: config.headers
+    });
+
     try {
       const response = await fetch(url, config);
       const data = await response.json();
       
+      console.log('📡 API Response:', {
+        url,
+        status: response.status,
+        ok: response.ok,
+        data: data
+      });
+      
       if (!response.ok) {
         // Se for erro 401 (não autorizado), chamar callback de logout
         if (response.status === 401 && logoutCallback) {
+          console.log('🚨 Erro 401 detectado - chamando logout callback');
           logoutCallback();
         }
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
@@ -54,7 +70,7 @@ class ApiService {
       
       return data;
     } catch (error) {
-      console.error('API Request Error:', error);
+      console.error('❌ API Request Error:', error);
       throw error;
     }
   }
@@ -62,6 +78,11 @@ class ApiService {
   // Health Check
   async healthCheck(): Promise<ApiResponse<any>> {
     return this.request('/api/health');
+  }
+
+  // PDF Status
+  async getPdfStatus(): Promise<ApiResponse<any>> {
+    return this.request('/api/pdf-status');
   }
 
   // Authentication
@@ -76,6 +97,20 @@ class ApiService {
     return this.request('/api/auth/cadastro', {
       method: 'POST',
       body: JSON.stringify(userData),
+    });
+  }
+
+  // User Management
+  async updateUser(id: string, userData: { nome?: string; cargo?: string }): Promise<ApiResponse<any>> {
+    return this.request(`/api/auth/usuarios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async deleteUser(id: string): Promise<ApiResponse<null>> {
+    return this.request(`/api/auth/usuarios/${id}`, {
+      method: 'DELETE',
     });
   }
 

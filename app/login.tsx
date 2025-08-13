@@ -21,12 +21,29 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
+      console.log('🔐 Iniciando processo de login...');
       await signIn(email, password);
-      // A navegação será tratada pelo AuthGuard no _layout.tsx
-      // router.replace('/');
+      console.log('✅ Login realizado com sucesso!');
+      // O redirecionamento será tratado pelo RootLayout
     } catch (error) {
+      console.error('❌ Erro no login:', error);
       Alert.alert('Erro de Login', 'As credenciais estão incorretas ou o usuário não existe.');
-      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestLogin = async () => {
+    console.log('🧪 Iniciando login de teste...');
+    setEmail('teste@exemplo.com');
+    setPassword('123456');
+    setLoading(true);
+    try {
+      await signIn('teste@exemplo.com', '123456');
+      console.log('✅ Login de teste realizado com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro no login de teste:', error);
+      Alert.alert('Erro de Login de Teste', 'Falha no login de teste.');
     } finally {
       setLoading(false);
     }
@@ -71,6 +88,16 @@ export default function LoginScreen() {
                 style={styles.button}
               >
                 Entrar
+              </Button>
+              
+              <Button
+                mode="outlined"
+                onPress={handleTestLogin}
+                loading={loading}
+                disabled={loading}
+                style={[styles.button, { marginTop: Spacing.sm }]}
+              >
+                🧪 Login de Teste
               </Button>
             </Card.Content>
           </Card>

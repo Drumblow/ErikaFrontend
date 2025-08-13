@@ -54,7 +54,6 @@ export interface UpdateCronogramaData {
 }
 
 export interface CreateAtividadeData {
-  cronogramaId?: string;
   data: string;
   diaSemana: DiaSemana;
   descricao: string;
@@ -64,6 +63,21 @@ export interface UpdateAtividadeData {
   data?: string;
   diaSemana?: DiaSemana;
   descricao?: string;
+}
+
+// User Management Types
+export interface UpdateUserData {
+  nome?: string;
+  cargo?: string;
+}
+
+export interface User {
+  id: string;
+  nome: string;
+  email: string;
+  cargo: string;
+  criadoEm: string;
+  atualizadoEm: string;
 }
 
 // Aliases para compatibilidade

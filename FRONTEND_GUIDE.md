@@ -22,7 +22,7 @@ const API_URL = 'https://cors-anywhere.herokuapp.com/https://erika-ubsf.vercel.a
 **✅ Usar:**
 ```javascript
 // Código novo funcionando
-const API_URL = 'https://erika-ubsf.vercel.app';
+const API_URL = 'http://152.70.219.71:8080';
 ```
 
 ### 2. **📝 Implementar Feedback de Cadastro**
@@ -40,7 +40,7 @@ const handleCadastro = async (userData) => {
   setFeedback({ type: '', message: '' });
 
   try {
-    const response = await fetch('https://erika-ubsf.vercel.app/api/auth/cadastro', {
+    const response = await fetch('http://152.70.219.71:8080/api/auth/cadastro', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ const handleCadastro = async (userData) => {
 // services/api.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'https://erika-ubsf.vercel.app';
+const API_BASE_URL = 'http://152.70.219.71:8080';
 
 const getAuthHeaders = async () => {
   const token = await AsyncStorage.getItem('userToken');
@@ -378,4 +378,4 @@ Após essas implementações:
 
 ---
 
-**💡 Dica:** Teste sempre o fluxo completo: Cadastro → Login → Ver cronogramas → Criar cronograma novo 
+**💡 Dica:** Teste sempre o fluxo completo: Cadastro → Login → Ver cronogramas → Criar cronograma novo

@@ -43,6 +43,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="pdf-status"
+        options={{
+          title: 'Status PDF',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="file-pdf-box" color={color} size={size} />
+          ),
+          headerRight: () => (
+            <Button
+              onPress={handleLogout}
+              textColor={Colors.text.white}
+              icon="logout"
+            >
+              Sair
+            </Button>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Meu Perfil',
@@ -62,4 +80,4 @@ export default function TabLayout() {
       />
     </Tabs>
   );
-} 
+}

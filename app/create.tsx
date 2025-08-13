@@ -22,7 +22,6 @@ import RNPickerSelect from 'react-native-picker-select';
 import { api } from '../src/services/api';
 import { CreateCronogramaData, MESES } from '../src/types';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
-import { AuthGuard } from '../src/components/AuthGuard';
 
 interface FormData {
   mes: number | undefined;
@@ -40,7 +39,7 @@ interface FormErrors {
   medico?: string;
 }
 
-function CreateCronogramaScreen() {
+export default function CreateCronogramaScreen() {
   const currentYear = new Date().getFullYear();
   
   const [formData, setFormData] = useState<FormData>({
@@ -175,7 +174,7 @@ function CreateCronogramaScreen() {
                   <Title style={styles.fieldTitle}>Mês *</Title>
                   <View style={styles.pickerContainer}>
                     <RNPickerSelect
-                      onValueChange={(value: number) => updateFormData('mes', value)}
+                      onValueChange={(value) => updateFormData('mes', value)}
                       items={MESES.map(mes => ({
                         label: mes.label,
                         value: mes.value,
@@ -199,7 +198,7 @@ function CreateCronogramaScreen() {
                   <Title style={styles.fieldTitle}>Ano *</Title>
                   <View style={styles.pickerContainer}>
                     <RNPickerSelect
-                      onValueChange={(value: number) => updateFormData('ano', value)}
+                      onValueChange={(value) => updateFormData('ano', value)}
                       items={yearOptions}
                       value={formData.ano}
                       style={pickerSelectStyles}
@@ -377,11 +376,3 @@ const pickerSelectStyles = StyleSheet.create({
     color: Colors.text.hint,
   },
 });
-
-export default function ProtectedCreateCronogramaScreen() {
-  return (
-    <AuthGuard>
-      <CreateCronogramaScreen />
-    </AuthGuard>
-  );
-}
