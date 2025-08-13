@@ -86,7 +86,6 @@ function CreateAtividadeScreen() {
     
     try {
       const atividadeData: CreateAtividadeData = {
-        cronogramaId: cronogramaId!,
         data: selectedDate.toISOString().split('T')[0],
         diaSemana: getDiaSemanaEnum(selectedDate, periodo),
         descricao: descricao.trim(),

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { TextInput, Button, Text, Card, Title, Subheading } from 'react-native-paper';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../src/contexts/AuthContext';
+import { useSnackbar } from '../src/contexts/SnackbarContext';
 import { Colors, Spacing, Shadows } from '../src/constants/theme';
 
 export default function LoginScreen() {
@@ -12,10 +13,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const { showSnackbar } = useSnackbar();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      showSnackbar('Por favor, preencha seu email e senha.', 'error');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      showSnackbar('Por favor, digite um email válido.', 'error');
       return;
     }
 
@@ -27,27 +34,30 @@ export default function LoginScreen() {
       // O redirecionamento será tratado pelo RootLayout
     } catch (error) {
       console.error('❌ Erro no login:', error);
-      Alert.alert('Erro de Login', 'As credenciais estão incorretas ou o usuário não existe.');
+      
+      let errorMessage = 'Ocorreu um erro inesperado. Tente novamente.';
+      
+      if (error instanceof Error) {
+         const message = error.message.toLowerCase();
+         
+         if (message.includes('credenciais') || message.includes('inválidas') || message.includes('senha') || message.includes('email') || message.includes('incorret')) {
+           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+         } else if (message.includes('usuário') || message.includes('user') || message.includes('não encontrado')) {
+           errorMessage = 'Usuário não encontrado. Verifique seu email ou cadastre-se.';
+         } else if (message.includes('rede') || message.includes('network') || message.includes('conexão')) {
+           errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+         } else if (message.includes('servidor') || message.includes('server')) {
+           errorMessage = 'Servidor temporariamente indisponível. Tente novamente em alguns minutos.';
+         }
+       }
+      
+       showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTestLogin = async () => {
-    console.log('🧪 Iniciando login de teste...');
-    setEmail('teste@exemplo.com');
-    setPassword('123456');
-    setLoading(true);
-    try {
-      await signIn('teste@exemplo.com', '123456');
-      console.log('✅ Login de teste realizado com sucesso!');
-    } catch (error) {
-      console.error('❌ Erro no login de teste:', error);
-      Alert.alert('Erro de Login de Teste', 'Falha no login de teste.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,20 +94,10 @@ export default function LoginScreen() {
                 mode="contained"
                 onPress={handleLogin}
                 loading={loading}
-                disabled={loading}
+                disabled={loading || !email || !password}
                 style={styles.button}
               >
                 Entrar
-              </Button>
-              
-              <Button
-                mode="outlined"
-                onPress={handleTestLogin}
-                loading={loading}
-                disabled={loading}
-                style={[styles.button, { marginTop: Spacing.sm }]}
-              >
-                🧪 Login de Teste
               </Button>
             </Card.Content>
           </Card>

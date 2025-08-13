@@ -38,6 +38,9 @@ import { AuthGuard } from '../../src/components/AuthGuard';
 const imageToBase64 = async (assetModule: number): Promise<string> => {
   const asset = Asset.fromModule(assetModule);
   await asset.downloadAsync();
+  if (!asset.localUri) {
+    throw new Error('Failed to download asset');
+  }
   return FileSystem.readAsStringAsync(asset.localUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
@@ -139,7 +142,7 @@ async function generateFullHtml(cronograma: Cronograma) {
         rightLogoBase64 = await imageToBase64(require('../../assets/pdf/image2.jpg'));
         headerTitleImageBase64 = await imageToBase64(require('../../assets/pdf/image1.png'));
     } catch (error) {
-        console.warn('[WARNING] Erro ao carregar imagens para o PDF:', error.message);
+        console.warn('[WARNING] Erro ao carregar imagens para o PDF:', error instanceof Error ? error.message : String(error));
     }
 
     let sizeClass = 'size-normal'; // 5 semanas
@@ -270,41 +273,73 @@ function PreviewCronogramaScreen() {
         console.log('✅ PDF gerado com sucesso via API');
         
         if (Platform.OS === 'web') {
-          // Para web, converte base64 para blob e abre em nova aba
-          const byteCharacters = atob(response.data.pdfBase64);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const pdfBlob = new Blob([byteArray], { type: 'application/pdf' });
-          const url = URL.createObjectURL(pdfBlob);
-          
-          // Abre o PDF em nova aba
-          window.open(url, '_blank');
-          
-          // Limpa a URL após um tempo para liberar memória
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+           // Para web, converte base64 para blob e faz download direto
+           const byteCharacters = atob(response.data.pdfBase64);
+           const byteNumbers = new Array(byteCharacters.length);
+           for (let i = 0; i < byteCharacters.length; i++) {
+             byteNumbers[i] = byteCharacters.charCodeAt(i);
+           }
+           const byteArray = new Uint8Array(byteNumbers);
+           const pdfBlob = new Blob([byteArray], { type: 'application/pdf' });
+           
+           // Cria um link temporário para download
+           const url = URL.createObjectURL(pdfBlob);
+           const link = document.createElement('a');
+           link.href = url;
+           link.download = `cronograma_${formatPeriod(cronograma.mes, cronograma.ano).replace('/', '_')}.pdf`;
+           
+           // Adiciona o link ao DOM, clica e remove
+           document.body.appendChild(link);
+           link.click();
+           document.body.removeChild(link);
+           
+           // Limpa a URL para liberar memória
+           URL.revokeObjectURL(url);
+           
+           Alert.alert('Sucesso', 'PDF baixado com sucesso!');
           
         } else {
-          // Para mobile, salva o arquivo e compartilha
-          const fileName = `cronograma_${formatPeriod(cronograma.mes, cronograma.ano).replace('/', '_')}.pdf`;
-          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-          
-          await FileSystem.writeAsStringAsync(fileUri, response.data.pdfBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
-              mimeType: 'application/pdf',
-              dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
-              UTI: 'com.adobe.pdf',
-            });
-          } else {
-            Alert.alert('PDF Salvo', `O arquivo foi salvo em: ${fileUri}`);
-          }
-        }
+           // Para mobile, salva o arquivo e compartilha
+           console.log('📱 Processando PDF para mobile...');
+           const fileName = `cronograma_${formatPeriod(cronograma.mes, cronograma.ano).replace('/', '_')}.pdf`;
+           const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+           
+           console.log('💾 Salvando arquivo em:', fileUri);
+           await FileSystem.writeAsStringAsync(fileUri, response.data.pdfBase64, {
+             encoding: FileSystem.EncodingType.Base64,
+           });
+           
+           console.log('✅ Arquivo salvo com sucesso');
+           
+           // Verifica se o compartilhamento está disponível
+           const sharingAvailable = await Sharing.isAvailableAsync();
+           console.log('🔗 Compartilhamento disponível:', sharingAvailable);
+           
+           if (sharingAvailable) {
+             console.log('📤 Iniciando compartilhamento...');
+             try {
+               await Sharing.shareAsync(fileUri, {
+                 mimeType: 'application/pdf',
+                 dialogTitle: `Cronograma ${formatPeriod(cronograma.mes, cronograma.ano)}`,
+                 UTI: 'com.adobe.pdf',
+               });
+               console.log('✅ Compartilhamento concluído');
+             } catch (shareError) {
+               console.error('❌ Erro no compartilhamento:', shareError);
+               Alert.alert(
+                 'PDF Gerado', 
+                 `O PDF foi salvo com sucesso!\n\nLocalização: ${fileUri}\n\nVocê pode encontrá-lo na pasta de documentos do aplicativo.`,
+                 [{ text: 'OK' }]
+               );
+             }
+           } else {
+             Alert.alert(
+               'PDF Salvo', 
+               `O arquivo foi salvo em: ${fileUri}\n\nVocê pode acessá-lo através do gerenciador de arquivos.`,
+               [{ text: 'OK' }]
+             );
+           }
+         }
       } else {
         throw new Error(response.message || 'Erro ao gerar PDF');
       }

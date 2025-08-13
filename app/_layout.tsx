@@ -65,9 +65,9 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return; // Aguarda o carregamento da autenticação
 
-    const inAuthGroup = segments[0] === '(tabs)';
-    const inAuthPages = segments[0] === 'login' || segments[0] === 'register';
-    const inRootPage = segments.length === 0;
+    const inAuthGroup = segments.length > 0 && segments[0] === '(tabs)';
+    const inAuthPages = segments.length > 0 && (segments[0] === 'login' || segments[0] === 'register');
+    const inRootPage = !segments.length;
 
     console.log('🔍 Auth check:', { user: !!user, token: !!token, segments, inAuthGroup, inAuthPages, inRootPage });
 
