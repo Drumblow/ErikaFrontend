@@ -172,7 +172,7 @@ function AtividadesScreen() {
       <Card.Actions style={styles.cardActions}>
         <Button 
           mode="outlined" 
-          onPress={() => router.push(`/atividade/edit/${item.id}`)}
+          onPress={() => router.push(`/atividade/edit/${item.id}?cronogramaId=${cronogramaId}`)}
           style={styles.actionButton}
         >
           Editar

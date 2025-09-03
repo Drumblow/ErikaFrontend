@@ -129,6 +129,7 @@ function CreateAtividadeScreen() {
             <Menu
               visible={dayMenuVisible}
               onDismiss={() => setDayMenuVisible(false)}
+              contentStyle={styles.menuContent}
               anchor={
                 <Button
                   onPress={() => setDayMenuVisible(true)}
@@ -144,7 +145,7 @@ function CreateAtividadeScreen() {
                 </Button>
               }
             >
-              <ScrollView style={{ maxHeight: 300 }}>
+              <ScrollView style={styles.menuScroll}>
                 {diasDoMes.map((dia, index) => (
                   <React.Fragment key={dia.toISOString()}>
                     <Menu.Item
@@ -215,6 +216,12 @@ const styles = StyleSheet.create({
   selectButtonContent: {
     justifyContent: 'flex-start',
   },
+  menuContent: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  menuScroll: { maxHeight: 300, backgroundColor: Colors.surface },
   toggleRow: { justifyContent: 'center', marginBottom: Spacing.md },
   toggleButton: { flex: 1 },
   input: { marginBottom: Spacing.md },

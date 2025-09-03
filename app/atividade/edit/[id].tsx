@@ -45,7 +45,7 @@ const DIAS_SEMANA_OPTIONS: { label: string; value: DiaSemana }[] = [
 ];
 
 function EditAtividadeScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, cronogramaId } = useLocalSearchParams<{ id: string; cronogramaId?: string }>();
   
   const [atividade, setAtividade] = useState<Atividade | null>(null);
   const [cronograma, setCronograma] = useState<Cronograma | null>(null);
@@ -70,35 +70,59 @@ function EditAtividadeScreen() {
     try {
       if (!id) return;
       setLoading(true);
-      const atividadeResponse = await api.getAtividade(id);
-      if (atividadeResponse.success) {
-        const atividadeData = atividadeResponse.data;
-        setAtividade(atividadeData);
 
-        const cronogramaResponse = await api.getCronograma(atividadeData.cronogramaId);
-        if (cronogramaResponse.success) {
-          const cronogramaData = cronogramaResponse.data;
-          setCronograma(cronogramaData);
-          setDiasDoMes(getDaysInMonth(cronogramaData.mes, cronogramaData.ano));
-          
-          // Pre-fill form
-          const date = new Date(atividadeData.data);
-          date.setUTCHours(12);
-          setSelectedDate(date);
-          setPeriodo(atividadeData.diaSemana.includes('MANHÃ') ? 'MANHÃ' : 'TARDE');
-          setDescricao(atividadeData.descricao);
-        } else {
-          setError(cronogramaResponse.message);
+      let atividadeData: Atividade | null = null;
+
+      // 1ª tentativa: rota direta /api/atividades/:id
+      try {
+        const atividadeResponse = await api.getAtividade(id);
+        if (atividadeResponse.success) {
+          atividadeData = atividadeResponse.data;
         }
+      } catch (primaryErr) {
+        // 2ª tentativa (fallback): rota aninhada /api/cronogramas/:cronogramaId/atividades/:id
+        if (cronogramaId) {
+          try {
+            const nestedResp = await api.getAtividadeNested(cronogramaId, id);
+            if (nestedResp.success) {
+              atividadeData = nestedResp.data;
+            }
+          } catch (nestedErr) {
+            throw nestedErr;
+          }
+        } else {
+          throw primaryErr;
+        }
+      }
+
+      if (!atividadeData) {
+        setError('Atividade não encontrada.');
+        return;
+      }
+
+      setAtividade(atividadeData);
+
+      const cronogramaResponse = await api.getCronograma(atividadeData.cronogramaId);
+      if (cronogramaResponse.success) {
+        const cronogramaData = cronogramaResponse.data;
+        setCronograma(cronogramaData);
+        setDiasDoMes(getDaysInMonth(cronogramaData.mes, cronogramaData.ano));
+        
+        // Preencher formulário
+        const date = new Date(atividadeData.data);
+        date.setUTCHours(12);
+        setSelectedDate(date);
+        setPeriodo(atividadeData.diaSemana.includes('MANHÃ') ? 'MANHÃ' : 'TARDE');
+        setDescricao(atividadeData.descricao);
       } else {
-        setError(atividadeResponse.message);
+        setError(cronogramaResponse.message);
       }
     } catch (err) {
       setError('Erro ao carregar dados da atividade.');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, cronogramaId]);
 
   useEffect(() => {
     loadData();
@@ -126,14 +150,29 @@ function EditAtividadeScreen() {
         descricao: descricao.trim(),
       };
       
-      const response = await api.updateAtividade(id!, atividadeData);
-      
-      if (response.success) {
-        showSnackbar('Atividade atualizada com sucesso!', 'success');
-        if (router.canGoBack()) router.back();
-        else router.replace(`/atividades/${atividade?.cronogramaId}`);
-      } else {
-        showSnackbar(response.message || 'Erro ao atualizar atividade', 'error');
+      try {
+        const response = await api.updateAtividade(id!, atividadeData);
+        if (response.success) {
+          showSnackbar('Atividade atualizada com sucesso!', 'success');
+          if (router.canGoBack()) router.back();
+          else router.replace(`/atividades/${atividade?.cronogramaId ?? cronogramaId}`);
+          return;
+        } else {
+          showSnackbar(response.message || 'Erro ao atualizar atividade', 'error');
+          return;
+        }
+      } catch (primaryErr) {
+        // Fallback para rota aninhada
+        const nestedCronogramaId = (cronogramaId || atividade?.cronogramaId);
+        if (!nestedCronogramaId) throw primaryErr;
+        const nestedResp = await api.updateAtividadeNested(nestedCronogramaId as string, id!, atividadeData);
+        if (nestedResp.success) {
+          showSnackbar('Atividade atualizada com sucesso!', 'success');
+          if (router.canGoBack()) router.back();
+          else router.replace(`/atividades/${nestedCronogramaId}`);
+        } else {
+          showSnackbar(nestedResp.message || 'Erro ao atualizar atividade', 'error');
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Verifique sua conexão.';
@@ -157,7 +196,13 @@ function EditAtividadeScreen() {
           onPress: async () => {
             try {
               setSaving(true);
-              await api.deleteAtividade(atividade.id);
+              try {
+                await api.deleteAtividade(atividade.id);
+              } catch (primaryErr) {
+                const nestedCronogramaId = (cronogramaId || atividade.cronogramaId);
+                if (!nestedCronogramaId) throw primaryErr;
+                await api.deleteAtividadeNested(nestedCronogramaId as string, atividade.id);
+              }
               
               Alert.alert(
                 'Sucesso',

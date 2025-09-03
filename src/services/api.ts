@@ -183,13 +183,18 @@ class ApiService {
     return this.request(`/api/atividades/${id}`);
   }
 
+  // Fallback: obter atividade por rota aninhada (quando o backend não expõe /api/atividades/:id)
+  async getAtividadeNested(cronogramaId: string, id: string): Promise<ApiResponse<Atividade>> {
+    return this.request(`/api/cronogramas/${cronogramaId}/atividades/${id}`);
+  }
+
   async createAtividade(
     cronogramaId: string,
     data: CreateAtividadeData
   ): Promise<ApiResponse<Atividade>> {
     return this.request(`/api/cronogramas/${cronogramaId}/atividades`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, cronogramaId }),
     });
   }
 
@@ -208,8 +213,27 @@ class ApiService {
     });
   }
 
+  // Fallback: atualizar atividade por rota aninhada
+  async updateAtividadeNested(
+    cronogramaId: string,
+    id: string,
+    data: UpdateAtividadeData
+  ): Promise<ApiResponse<Atividade>> {
+    return this.request(`/api/cronogramas/${cronogramaId}/atividades/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async deleteAtividade(id: string): Promise<ApiResponse<null>> {
     return this.request(`/api/atividades/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Fallback: excluir atividade por rota aninhada
+  async deleteAtividadeNested(cronogramaId: string, id: string): Promise<ApiResponse<null>> {
+    return this.request(`/api/cronogramas/${cronogramaId}/atividades/${id}`, {
       method: 'DELETE',
     });
   }
