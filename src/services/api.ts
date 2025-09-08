@@ -80,10 +80,7 @@ class ApiService {
     return this.request('/api/health');
   }
 
-  // PDF Status
-  async getPdfStatus(): Promise<ApiResponse<any>> {
-    return this.request('/api/pdf-status');
-  }
+
 
   // Authentication
   async login(credentials: { email: string; senha: string }): Promise<ApiResponse<{ token: string; usuario: any }>> {

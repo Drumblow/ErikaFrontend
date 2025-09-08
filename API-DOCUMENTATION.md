@@ -64,38 +64,11 @@ Origens permitidas:
 }
 ```
 
-### 2. Status do PDF
 
-**GET** `/api/pdf-status`
-
-**Descrição:** Retorna informações sobre a implementação de geração de PDF.
-
-**Resposta de Sucesso (200):**
-```json
-{
-  "success": true,
-  "message": "Status do PDF",
-  "data": {
-    "puppeteer": {
-      "status": "ativo",
-      "rota": "/api/cronogramas/{id}/pdf",
-      "otimizado_para": "Vercel"
-    },
-    "pdfshift": {
-      "status": "legado",
-      "rota": "/api/cronogramas/{id}/pdf-pdfshift"
-    },
-    "migracao_concluida": true
-  },
-  "timestamp": "2024-12-20T15:30:00.000Z"
-}
-```
-
----
 
 ## 👤 Autenticação e Usuários
 
-### 3. Cadastro de Usuário
+### 2. Cadastro de Usuário
 
 **POST** `/api/auth/cadastro`
 

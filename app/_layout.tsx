@@ -22,37 +22,37 @@ const paperTheme = {
     onSurface: Colors.text.primary,
     onBackground: Colors.text.primary,
     // Cores adicionais necessárias para o Material Design 3
-    primaryContainer: 'rgba(33, 150, 243, 0.12)', // primary com 12% opacity
+    primaryContainer: '#E3F2FD', // cor sólida azul claro
     onPrimary: Colors.text.white,
     onPrimaryContainer: Colors.text.primary,
-    secondaryContainer: 'rgba(76, 175, 80, 0.12)', // secondary com 12% opacity
+    secondaryContainer: '#E8F5E8', // cor sólida verde claro
     onSecondary: Colors.text.white,
     onSecondaryContainer: Colors.text.primary,
     tertiary: Colors.primary,
     onTertiary: Colors.text.white,
-    tertiaryContainer: 'rgba(33, 150, 243, 0.12)',
+    tertiaryContainer: '#E3F2FD', // cor sólida azul claro
     onTertiaryContainer: Colors.text.primary,
     surfaceVariant: '#F5F5F5',
     onSurfaceVariant: Colors.text.secondary,
-    outline: 'rgba(117, 117, 117, 0.5)',
+    outline: '#757575', // cor sólida cinza
     shadow: '#000000',
     inverseSurface: Colors.text.primary,
     inverseOnSurface: Colors.surface,
     inversePrimary: Colors.primary,
-    backdrop: 'rgba(0, 0, 0, 0.7)',
-    surfaceDisabled: 'rgba(255, 255, 255, 0.6)',
-    onSurfaceDisabled: 'rgba(33, 33, 33, 0.6)',
-    errorContainer: 'rgba(244, 67, 54, 0.12)',
+    backdrop: '#000000', // cor sólida preta
+    surfaceDisabled: '#E0E0E0', // cor sólida cinza claro
+    onSurfaceDisabled: '#9E9E9E', // cor sólida cinza
+    errorContainer: '#FFEBEE', // cor sólida vermelho claro
     onError: Colors.text.white,
     onErrorContainer: Colors.text.primary,
     // Propriedade elevation necessária para o Searchbar
     elevation: {
       level0: 'transparent',
-      level1: 'rgba(255, 255, 255, 0.05)', // 5% opacity
-      level2: 'rgba(255, 255, 255, 0.08)', // 8% opacity
-      level3: 'rgba(255, 255, 255, 0.11)', // 11% opacity
-      level4: 'rgba(255, 255, 255, 0.12)', // 12% opacity
-      level5: 'rgba(255, 255, 255, 0.14)', // 14% opacity
+      level1: '#F8F8F8', // cor sólida branco acinzentado
+      level2: '#F5F5F5', // cor sólida cinza muito claro
+      level3: '#F0F0F0', // cor sólida cinza claro
+      level4: '#EEEEEE', // cor sólida cinza claro
+      level5: '#E8E8E8', // cor sólida cinza
     },
   },
 };
