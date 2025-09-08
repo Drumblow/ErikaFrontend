@@ -176,7 +176,17 @@ class ApiService {
     ).toString();
     
     const endpoint = `/api/cronogramas/${cronogramaId}/atividades${queryString ? `?${queryString}` : ''}`;
-    return this.request(endpoint);
+    const response = await this.request<PaginatedResponse<Atividade>>(endpoint);
+    console.log('🔍 API Response - getAtividades:', response);
+    if (response.data && response.data.items) {
+      console.log('📅 Atividades com datas:', response.data.items.map((ativ: Atividade) => ({
+        id: ativ.id,
+        descricao: ativ.descricao,
+        data: ativ.data,
+        diaSemana: ativ.diaSemana
+      })));
+    }
+    return response;
   }
 
   async getAtividade(id: string): Promise<ApiResponse<Atividade>> {
@@ -192,10 +202,21 @@ class ApiService {
     cronogramaId: string,
     data: CreateAtividadeData
   ): Promise<ApiResponse<Atividade>> {
-    return this.request(`/api/cronogramas/${cronogramaId}/atividades`, {
+    console.log('📤 Enviando dados para createAtividade:', { ...data, cronogramaId });
+    const response = await this.request<Atividade>(`/api/cronogramas/${cronogramaId}/atividades`, {
       method: 'POST',
-      body: JSON.stringify({ ...data, cronogramaId }),
+      body: JSON.stringify({ ...data, cronogramaId })
     });
+    console.log('📥 Resposta createAtividade:', response);
+    if (response.data) {
+      console.log('📅 Atividade criada com data:', {
+        id: response.data.id,
+        descricao: response.data.descricao,
+        data: response.data.data,
+        diaSemana: response.data.diaSemana
+      });
+    }
+    return response;
   }
 
   // Overload para compatibilidade com chamadas que passam apenas cronogramaId

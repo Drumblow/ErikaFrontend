@@ -13,17 +13,40 @@ export type DiaSemana =
 
 /**
  * Formata uma data para o formato brasileiro (DD/MM/AAAA)
+ * Evita problemas de timezone usando valores UTC
  */
 export const formatDate = (date: string | Date): string => {
-  const d = new Date(date);
-  return d.toLocaleDateString('pt-BR');
+  let d: Date;
+  
+  if (typeof date === 'string') {
+    // Se a string já contém informações de tempo (ISO format), usa diretamente
+    if (date.includes('T')) {
+      d = new Date(date);
+    } else {
+      // Se é apenas uma data (YYYY-MM-DD), adiciona o tempo para evitar timezone issues
+      d = new Date(date + 'T00:00:00');
+    }
+  } else {
+    d = new Date(date);
+  }
+  
+  // Usa valores UTC para evitar problemas de timezone
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  
+  return `${day}/${month}/${year}`;
 };
 
 /**
  * Formata uma data para o formato ISO (YYYY-MM-DD)
+ * Evita problemas de fuso horário usando valores locais
  */
 export const formatDateISO = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**

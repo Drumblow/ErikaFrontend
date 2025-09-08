@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Alert,
 } from 'react-native';
 import {
   Card,
@@ -16,6 +15,9 @@ import {
   Divider,
   HelperText,
   ToggleButton,
+  Portal,
+  Dialog,
+  Paragraph,
 } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +27,7 @@ import { Platform } from 'react-native';
 import { api } from '../../../src/services/api';
 import { Atividade, Cronograma, UpdateAtividadeData } from '../../../src/types';
 import { Colors, Spacing, Shadows } from '../../../src/constants/theme';
-import { DiaSemana, formatPeriod, getDaysInMonth, isValidDate, getDayName, getDiaSemanaEnum, formatDate } from '../../../src/utils';
+import { DiaSemana, formatPeriod, getDaysInMonth, isValidDate, getDayName, getDiaSemanaEnum, formatDate, formatDateISO } from '../../../src/utils';
 import { useSnackbar } from '../../../src/contexts/SnackbarContext';
 import { AuthGuard } from '../../../src/components/AuthGuard';
 
@@ -66,6 +68,11 @@ function EditAtividadeScreen() {
   // Validation errors
   const [errors, setErrors] = useState<{ data?: string; descricao?: string;}>({});
 
+  // Dialog state for deletion confirmation
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const showDialog = () => setDialogVisible(true);
+  const hideDialog = () => setDialogVisible(false);
+
   const loadData = useCallback(async () => {
     try {
       if (!id) return;
@@ -73,24 +80,32 @@ function EditAtividadeScreen() {
 
       let atividadeData: Atividade | null = null;
 
-      // 1ª tentativa: rota direta /api/atividades/:id
-      try {
-        const atividadeResponse = await api.getAtividade(id);
-        if (atividadeResponse.success) {
-          atividadeData = atividadeResponse.data;
-        }
-      } catch (primaryErr) {
-        // 2ª tentativa (fallback): rota aninhada /api/cronogramas/:cronogramaId/atividades/:id
-        if (cronogramaId) {
-          try {
-            const nestedResp = await api.getAtividadeNested(cronogramaId, id);
-            if (nestedResp.success) {
-              atividadeData = nestedResp.data;
-            }
-          } catch (nestedErr) {
-            throw nestedErr;
+      // Tentar primeiro a rota aninhada quando cronogramaId estiver disponível
+      if (cronogramaId) {
+        try {
+          const nestedResp = await api.getAtividadeNested(cronogramaId, id);
+          if (nestedResp.success) {
+            atividadeData = nestedResp.data;
           }
-        } else {
+        } catch (nestedErr) {
+          // Fallback: rota direta /api/atividades/:id
+          try {
+            const atividadeResponse = await api.getAtividade(id);
+            if (atividadeResponse.success) {
+              atividadeData = atividadeResponse.data;
+            }
+          } catch (primaryErr) {
+            throw primaryErr;
+          }
+        }
+      } else {
+        // Sem cronogramaId, usar rota direta
+        try {
+          const atividadeResponse = await api.getAtividade(id);
+          if (atividadeResponse.success) {
+            atividadeData = atividadeResponse.data;
+          }
+        } catch (primaryErr) {
           throw primaryErr;
         }
       }
@@ -145,7 +160,7 @@ function EditAtividadeScreen() {
     
     try {
       const atividadeData: UpdateAtividadeData = {
-        data: selectedDate.toISOString().split('T')[0],
+        data: formatDateISO(selectedDate),
         diaSemana: getDiaSemanaEnum(selectedDate, periodo),
         descricao: descricao.trim(),
       };
@@ -182,47 +197,35 @@ function EditAtividadeScreen() {
     }
   };
 
+  // Extract deletion logic into a function used by Dialog confirm action
+  const confirmDeletion = async () => {
+    if (!atividade) return;
+    try {
+      setSaving(true);
+      try {
+        await api.deleteAtividade(atividade.id);
+      } catch (primaryErr) {
+        const nestedCronogramaId = (cronogramaId || atividade.cronogramaId);
+        if (!nestedCronogramaId) throw primaryErr;
+        await api.deleteAtividadeNested(nestedCronogramaId as string, atividade.id);
+      }
+
+      hideDialog();
+      showSnackbar('Atividade excluída com sucesso!', 'success');
+      if (router.canGoBack()) router.back();
+      else router.replace(`/atividades/${atividade.cronogramaId ?? cronogramaId}`);
+    } catch (err) {
+      hideDialog();
+      showSnackbar('Não foi possível excluir a atividade.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Show dialog instead of native Alert
   const handleDelete = () => {
     if (!atividade) return;
-    
-    Alert.alert(
-      'Confirmar Exclusão',
-      `Deseja realmente excluir a atividade "${atividade.descricao}"?\n\nEsta ação não pode ser desfeita.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setSaving(true);
-              try {
-                await api.deleteAtividade(atividade.id);
-              } catch (primaryErr) {
-                const nestedCronogramaId = (cronogramaId || atividade.cronogramaId);
-                if (!nestedCronogramaId) throw primaryErr;
-                await api.deleteAtividadeNested(nestedCronogramaId as string, atividade.id);
-              }
-              
-              Alert.alert(
-                'Sucesso',
-                'Atividade excluída com sucesso!',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => router.back(),
-                  },
-                ]
-              );
-            } catch (err) {
-              Alert.alert('Erro', 'Não foi possível excluir a atividade.');
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ]
-    );
+    showDialog();
   };
 
   const getMinDate = (): Date => {
@@ -381,9 +384,25 @@ function EditAtividadeScreen() {
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
-  );
-}
+      {/* Deletion Confirmation Dialog */}
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={hideDialog}>
+          <Dialog.Title>Confirmar Exclusão</Dialog.Title>
+          <Dialog.Content>
+            <Paragraph>
+              {atividade && `Deseja realmente excluir a atividade "${atividade.descricao}"?`}
+              {'\n\n'}Esta ação não pode ser desfeita.
+            </Paragraph>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={hideDialog} disabled={saving}>Cancelar</Button>
+            <Button onPress={confirmDeletion} textColor={Colors.error} disabled={saving}>Excluir</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      </SafeAreaView>
+    );
+  }
 
 const styles = StyleSheet.create({
   container: {

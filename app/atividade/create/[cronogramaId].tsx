@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../../src/services/api';
 import { Cronograma, CreateAtividadeData } from '../../../src/types';
 import { Colors, Spacing } from '../../../src/constants/theme';
-import { formatPeriod, getDaysInMonth, getDayName, getDiaSemanaEnum, formatDate } from '../../../src/utils';
+import { formatPeriod, getDaysInMonth, getDayName, getDiaSemanaEnum, formatDate, formatDateISO } from '../../../src/utils';
 import { useSnackbar } from '../../../src/contexts/SnackbarContext';
 import { AuthGuard } from '../../../src/components/AuthGuard';
 
@@ -86,7 +86,7 @@ function CreateAtividadeScreen() {
     
     try {
       const atividadeData: CreateAtividadeData = {
-        data: selectedDate.toISOString().split('T')[0],
+        data: formatDateISO(selectedDate),
         diaSemana: getDiaSemanaEnum(selectedDate, periodo),
         descricao: descricao.trim(),
       };

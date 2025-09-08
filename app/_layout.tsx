@@ -39,7 +39,7 @@ const paperTheme = {
     inverseSurface: Colors.text.primary,
     inverseOnSurface: Colors.surface,
     inversePrimary: Colors.primary,
-    backdrop: 'rgba(0, 0, 0, 0.4)',
+    backdrop: 'rgba(0, 0, 0, 0.7)',
     surfaceDisabled: 'rgba(255, 255, 255, 0.6)',
     onSurfaceDisabled: 'rgba(33, 33, 33, 0.6)',
     errorContainer: 'rgba(244, 67, 54, 0.12)',
